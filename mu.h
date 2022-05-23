@@ -1,0 +1,125 @@
+#pragma once
+
+#if !defined(__x86_64__) || !defined(__linux__)
+#error "This package only supports Linux/x86_64"
+#endif
+
+#include <asm-generic/errno.h>
+#include <asm/unistd_64.h>
+#include <stdint.h>
+
+enum {
+    TBTHREAD_MUTEX_NORMAL = 0,
+    TBTHREAD_MUTEX_ERRORCHECK,
+    TBTHREAD_MUTEX_RECURSIVE,
+    TBTHREAD_MUTEX_DEFAULT = 0,
+};
+
+/* Thread attirbutes */
+typedef struct {
+    uint32_t stack_size;
+} muthread_attr_t;
+
+/* Thread descriptor */
+typedef struct muthread {
+    struct muthread *self;
+    void *stack;
+    uint32_t stack_size;
+    void *(*fn)(void *);
+    void *arg;
+} * muthread_t;
+
+/* Mutex attributes */
+typedef struct {
+    uint8_t type;
+} muthread_mutexattr_t;
+
+/* Mutex */
+typedef struct {
+    int futex;
+    uint8_t type;
+    muthread_t owner;
+    uint64_t counter;
+} muthread_mutex_t;
+
+#define TBTHREAD_MUTEX_INITIALIZER \
+    {                              \
+        0, 0, 0, 0                 \
+    }
+
+/* General threading */
+void muthread_attr_init(muthread_attr_t *attr);
+int muthread_create(muthread_t *thread,
+                    const muthread_attr_t *attrs,
+                    void *(*f)(void *),
+                    void *arg);
+
+/* Get the pointer of the currently running thread */
+static inline muthread_t muthread_self()
+{
+    muthread_t self;
+    asm("movq %%fs:0, %0\n\t" : "=r"(self));
+    return self;
+}
+
+/* Mutexes */
+int muthread_mutexattr_init(muthread_mutexattr_t *attr);
+int muthread_mutexattr_settype(muthread_mutexattr_t *attr, int type);
+
+int muthread_mutex_init(muthread_mutex_t *mutex,
+                        const muthread_mutexattr_t *attr);
+int muthread_mutex_lock(muthread_mutex_t *mutex);
+int muthread_mutex_trylock(muthread_mutex_t *mutex);
+int muthread_mutex_unlock(muthread_mutex_t *mutex);
+
+/* Utility functions */
+void muprint(const char *format, ...);
+void musleep(int secs);
+void *mummap(void *addr,
+             unsigned long length,
+             int prot,
+             int flags,
+             int fd,
+             unsigned long offset);
+int mumunmap(void *addr, unsigned long length);
+
+int muclone(int (*fn)(void *), void *arg, int flags, void *child_stack, ...
+            /* pid_t *ptid, pid_t *ctid */);
+
+/* Syscall interface */
+#define SYSCALL(name, a1, a2, a3, a4, a5, a6)                             \
+    ({                                                                    \
+        long result;                                                      \
+        long __a1 = (long) (a1), __a2 = (long) (a2), __a3 = (long) (a3);  \
+        long __a4 = (long) (a4), __a5 = (long) (a5), __a6 = (long) (a6);  \
+        register long _a1 asm("rdi") = __a1;                              \
+        register long _a2 asm("rsi") = __a2;                              \
+        register long _a3 asm("rdx") = __a3;                              \
+        register long _a4 asm("r10") = __a4;                              \
+        register long _a5 asm("r8") = __a5;                               \
+        register long _a6 asm("r9") = __a6;                               \
+        asm volatile("syscall\n\t"                                        \
+                     : "=a"(result)                                       \
+                     : "0"(name), "r"(_a1), "r"(_a2), "r"(_a3), "r"(_a4), \
+                       "r"(_a5), "r"(_a6)                                 \
+                     : "memory", "cc", "r11", "cx");                      \
+        (long) result;                                                    \
+    })
+
+#define SYSCALL1(name, a1) SYSCALL(name, a1, 0, 0, 0, 0, 0)
+#define SYSCALL2(name, a1, a2) SYSCALL(name, a1, a2, 0, 0, 0, 0)
+#define SYSCALL3(name, a1, a2, a3) SYSCALL(name, a1, a2, a3, 0, 0, 0)
+#define SYSCALL4(name, a1, a2, a3, a4) SYSCALL(name, a1, a2, a3, a4, 0, 0)
+#define SYSCALL5(name, a1, a2, a3, a4, a5) SYSCALL(name, a1, a2, a3, a4, a5, 0)
+#define SYSCALL6(name, a1, a2, a3, a4, a5, a6) \
+    SYSCALL(name, a1, a2, a3, a4, a5, a6)
+
+#include <stdbool.h>
+/* TODO: switch to C11 Atomics */
+#define atomic_bool_cmpxchg(ptr, old, new)                                 \
+    ({                                                                     \
+        typeof(*ptr) _old = (old), _new = (new);                           \
+        bool r = __atomic_compare_exchange(                                \
+            ptr, &_old, &_new, false, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST); \
+        r;                                                                 \
+    })
