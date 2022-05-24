@@ -7,6 +7,8 @@
 #include <asm-generic/errno.h>
 #include <asm/unistd_64.h>
 #include <stdint.h>
+#include <stdbool.h>
+#include <stdatomic.h>
 
 /* Mutex types */
 enum {
@@ -37,7 +39,7 @@ typedef struct {
 
 /* Mutex */
 typedef struct {
-    int futex;
+    _Atomic int futex;
     uint8_t type;
     muthread_t owner;
     uint64_t counter;
@@ -116,12 +118,10 @@ int muclone(int (*fn)(void *), void *arg, int flags, void *child_stack, ...
 #define SYSCALL6(name, a1, a2, a3, a4, a5, a6) \
     SYSCALL(name, a1, a2, a3, a4, a5, a6)
 
-#include <stdbool.h>
-/* TODO: switch to C11 Atomics */
 #define atomic_bool_cmpxchg(ptr, old, new)                                 \
     ({                                                                     \
         typeof(*ptr) _old = (old), _new = (new);                           \
-        bool r = __atomic_compare_exchange(                                \
-            ptr, &_old, &_new, false, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST); \
+        bool r = atomic_compare_exchange_strong_explicit(                                \
+            ptr, &_old, _new, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST); \
         r;                                                                 \
     })
