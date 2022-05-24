@@ -34,9 +34,14 @@ static int start_thread(void *arg)
         "movq $60, %%rax\n\t"  // 60 = __NR_exit
         "movq $0, %%rdi\n\t"
         "syscall"
-        :
-        : "a"(__NR_munmap), "r"(a1), "r"(a2)
-        : "memory", "cc", "r11", "cx");
+        :                                     // Output
+        : "a"(__NR_munmap), "r"(a1), "r"(a2)  // Input
+        : "memory", "cc", "r11", "cx");       // Clobber List
+        /* Clobber list -> Each string is the name of a register that the assembly code  
+         * potentially modifies, but for which the final value is not important
+         * "memory": if instruction modifies memory
+         * "cc": if instruction can alter the condition code register 
+         */
     return 0;
 }
 
@@ -74,6 +79,8 @@ int muthread_create(muthread_t *thread,
     int flags =
         CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SYSVSEM | CLONE_SIGHAND;
     flags |= CLONE_THREAD | CLONE_SETTLS;
+    
+    /* Get thread id */
     int tid = muclone(start_thread, *thread, flags,
                       (char *) stack + attr->stack_size, 0, 0, *thread);
     if (tid < 0) {

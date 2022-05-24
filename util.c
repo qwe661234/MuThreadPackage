@@ -159,6 +159,9 @@ void musleep(int secs)
 {
     struct timespec ts = {.tv_sec = secs, .tv_nsec = 0},
                     rem = {.tv_sec = 0, .tv_nsec = 0};
+    /* Sleep would be interrupted by signal handler, so we should 
+     * record and resume it 
+     */
     while (SYSCALL2(__NR_nanosleep, &ts, &rem) == -EINTR) {
         ts.tv_sec = rem.tv_sec;
         ts.tv_nsec = rem.tv_nsec;

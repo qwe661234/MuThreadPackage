@@ -8,6 +8,7 @@
 #include <asm/unistd_64.h>
 #include <stdint.h>
 
+/* Mutex types */
 enum {
     TBTHREAD_MUTEX_NORMAL = 0,
     TBTHREAD_MUTEX_ERRORCHECK,
@@ -58,6 +59,7 @@ int muthread_create(muthread_t *thread,
 static inline muthread_t muthread_self()
 {
     muthread_t self;
+    /* The fs register is commonly used to address Thread Local Storage (TLS) */
     asm("movq %%fs:0, %0\n\t" : "=r"(self));
     return self;
 }

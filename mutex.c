@@ -40,6 +40,9 @@ static int lock_errorcheck(muthread_mutex_t *mutex)
 
 static int trylock_errorcheck(muthread_mutex_t *mutex)
 {
+    if (mutex->owner == muthread_self())
+        return -EDEADLK;
+
     int ret = trylock_normal(mutex);
     if (ret == 0)
         mutex->owner = muthread_self();
@@ -63,6 +66,7 @@ static int lock_recursive(muthread_mutex_t *mutex)
         lock_normal(mutex);
         mutex->owner = self;
     }
+    /* Check counter overflow */
     if (mutex->counter == (uint64_t) -1)
         return -EAGAIN;
 
@@ -78,10 +82,8 @@ static int trylock_recursive(muthread_mutex_t *mutex)
 
     if (mutex->owner != self) {
         mutex->owner = self;
-        mutex->counter = 1;
-        return 0;
     }
-
+    /* Check counter overflow */
     if (mutex->counter == (uint64_t) -1)
         return -EAGAIN;
 
@@ -128,6 +130,7 @@ int muthread_mutexattr_init(muthread_mutexattr_t *attr)
     return 0;
 }
 
+/* Set attributes */
 int muthread_mutexattr_settype(muthread_mutexattr_t *attr, int type)
 {
     if (type < TBTHREAD_MUTEX_NORMAL || type > TBTHREAD_MUTEX_RECURSIVE)
