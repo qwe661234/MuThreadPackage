@@ -118,10 +118,16 @@ int muclone(int (*fn)(void *), void *arg, int flags, void *child_stack, ...
 #define SYSCALL6(name, a1, a2, a3, a4, a5, a6) \
     SYSCALL(name, a1, a2, a3, a4, a5, a6)
 
-#define atomic_bool_cmpxchg(ptr, old, new)                                 \
+#define ___PASTE(a , b) a##b
+#define __PASTE(a , b) ___PASTE(a, b)
+#define __UNIQUE_ID(prefix) \
+    __PASTE(__PASTE(__UNIQUE_ID_, prefix), __COUNTER__)
+#define _atomic_bool_cmpxchg(ptr, varname1, varname2, old, new)            \
     ({                                                                     \
-        typeof(*ptr) _old = (old), _new = (new);                           \
-        bool r = atomic_compare_exchange_strong_explicit(                                \
-            ptr, &_old, _new, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST); \
+        typeof(*ptr) varname1 = (old), varname2 = (new);                   \
+        bool r = atomic_compare_exchange_strong_explicit(                  \
+            ptr, &varname1, varname2, __ATOMIC_SEQ_CST, __ATOMIC_SEQ_CST); \
         r;                                                                 \
     })
+#define atomic_bool_cmpxchg(ptr, old, new)                                          \
+            _atomic_bool_cmpxchg(ptr, __UNIQUE_ID(old), __UNIQUE_ID(new), old, new) \

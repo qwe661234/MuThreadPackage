@@ -6,9 +6,10 @@
 #include <stdarg.h>
 #include <stdint.h>
 #include <string.h>
+#include <stdatomic.h>
 
 /* A futex for serializing the writes */
-static void futex_lock(int *futex)
+static void futex_lock(_Atomic int *futex)
 {
     while (1) {
         int val = *futex;
@@ -18,7 +19,7 @@ static void futex_lock(int *futex)
     }
 }
 
-static void futex_unlock(int *futex)
+static void futex_unlock(_Atomic int *futex)
 {
     atomic_bool_cmpxchg(futex, 1, 0);
     SYSCALL3(__NR_futex, futex, FUTEX_WAKE, 1);
@@ -76,7 +77,7 @@ static void printNumS(int64_t num)
 }
 
 /* print to stdout */
-static int print_lock;
+_Atomic static int print_lock;
 void muprint(const char *format, ...)
 {
     futex_lock(&print_lock);
@@ -201,7 +202,7 @@ static void *heap_limit;
 #define MEMCHUNK_USED 0x4000000000000000
 
 /* Malloc */
-static int memory_lock;
+_Atomic static int memory_lock;
 void *malloc(size_t size)
 {
     futex_lock(&memory_lock);
