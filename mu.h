@@ -11,6 +11,40 @@
 #include <stdatomic.h>
 #include <sched.h>
 
+/*
+ * The pthread_attr_setschedparam and pthread_attr_setschedpolicy need another 
+ * function pthread_attr_setinheritsched, and set its second parameter as
+ * PTHREAD_EXPLICIT_SCHED. Otherwise, nethier the scheduler policy 
+ * nor scheduler priority would change.
+ * 
+ * In pthread library, priority inheritance mutex should be set by funciton 
+ * pthread_mutexattr_setprotocol, and set its second parameter as PTHREAD_PRIO_INHERIT.
+ */
+#ifdef PTHREAD
+#include <pthread.h>
+#include <stdio.h>
+#define muthread_t pthread_t
+#define muthread_attr_t pthread_attr_t
+#define muthread_mutexattr_t pthread_mutexattr_t
+#define muthread_mutex_t pthread_mutex_t
+#define muthread_attr_init pthread_attr_init
+#define muthread_attr_setschedparam pthread_attr_setschedparam
+#define muthread_attr_setschedpolicy pthread_attr_setschedpolicy
+#define muthread_create pthread_create
+#define muthread_self pthread_self
+#define muthread_mutexattr_init pthread_mutexattr_init
+#define muthread_mutexattr_settype pthread_mutexattr_settype
+#define muthread_mutex_init pthread_mutex_init
+#define muthread_mutex_lock pthread_mutex_lock
+#define muthread_mutex_trylock pthread_mutex_trylock
+#define muthread_mutex_unlock pthread_mutex_unlock
+#define TBTHREAD_MUTEX_NORMAL TBTHREAD_MUTEX_NORMAL
+#define TBTHREAD_MUTEX_ERRORCHECK PTHREAD_MUTEX_ERRORCHECK
+#define TBTHREAD_MUTEX_RECURSIVE PTHREAD_MUTEX_RECURSIVE
+#define TBTHREAD_MUTEX_DEFAULT PTHREAD_MUTEX_DEFAULT
+#define muprint printf
+#define musleep sleep
+#else
 /* Mutex types */
 enum {
     TBTHREAD_MUTEX_NORMAL = 0,
@@ -99,7 +133,7 @@ int mumunmap(void *addr, unsigned long length);
 
 int muclone(int (*fn)(void *), void *arg, int flags, void *child_stack, ...
             /* pid_t *ptid, pid_t *ctid */);
-
+#endif
 /* Syscall interface */
 #define SYSCALL(name, a1, a2, a3, a4, a5, a6)                             \
     ({                                                                    \
