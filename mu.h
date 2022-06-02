@@ -9,18 +9,22 @@
 #include <stdint.h>
 #include <stdbool.h>
 #include <stdatomic.h>
+#include <sched.h>
 
 /* Mutex types */
 enum {
     TBTHREAD_MUTEX_NORMAL = 0,
     TBTHREAD_MUTEX_ERRORCHECK,
     TBTHREAD_MUTEX_RECURSIVE,
+    TBTHREAD_MUTEX_PRIO_INHERIT,
     TBTHREAD_MUTEX_DEFAULT = 0,
 };
 
 /* Thread attirbutes */
 typedef struct {
     uint32_t stack_size;
+    uint16_t policy;
+    struct sched_param *param;
 } muthread_attr_t;
 
 /* Thread descriptor */
@@ -30,6 +34,9 @@ typedef struct muthread {
     uint32_t stack_size;
     void *(*fn)(void *);
     void *arg;
+    uint32_t tid;
+    uint16_t policy;
+    struct sched_param *param;
 } * muthread_t;
 
 /* Mutex attributes */
@@ -52,6 +59,9 @@ typedef struct {
 
 /* General threading */
 void muthread_attr_init(muthread_attr_t *attr);
+int muthread_attr_setschedpolicy(muthread_attr_t *attr, uint16_t policy);
+int muthread_attr_setschedparam(muthread_attr_t *attr, struct sched_param *param);
+
 int muthread_create(muthread_t *thread,
                     const muthread_attr_t *attrs,
                     void *(*f)(void *),

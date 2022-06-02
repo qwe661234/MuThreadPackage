@@ -4,6 +4,8 @@
 #include <asm-generic/param.h>
 #include <linux/mman.h>
 #include <linux/sched.h>
+#include <sys/types.h>
+#include <sched.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
@@ -12,6 +14,28 @@
 void muthread_attr_init(muthread_attr_t *attr)
 {
     attr->stack_size = 8192 * 1024;
+    attr->policy = SCHED_OTHER;
+    attr->param = NULL;
+}
+
+int muthread_attr_setschedpolicy(muthread_attr_t *attr, uint16_t policy)
+{
+    if (policy < SCHED_OTHER || policy > SCHED_DEADLINE)
+        return -EINVAL;
+    attr->policy = policy;
+    return 0; 
+}
+
+int muthread_attr_setschedparam(muthread_attr_t *attr, struct sched_param *param)
+{
+    if (!param)
+        return -EINVAL;
+    uint16_t prio_max = SYSCALL1(__NR_sched_get_priority_max, attr->policy);
+    uint16_t prio_min = SYSCALL1(__NR_sched_get_priority_min, attr->policy);
+    if (param->sched_priority > prio_max || param->sched_priority < prio_min)
+        return -EINVAL;
+    attr->param = param;
+    return 0; 
 }
 
 /* Thread function wrapper */
@@ -72,15 +96,18 @@ int muthread_create(muthread_t *thread,
     (*thread)->self = *thread;
     (*thread)->stack = stack;
     (*thread)->stack_size = attr->stack_size;
+    (*thread)->policy = attr->policy;
+    (*thread)->param = attr->param;
     (*thread)->fn = f;
     (*thread)->arg = arg;
-
     /* Spawn the thread */
     int flags =
         CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SYSVSEM | CLONE_SIGHAND;
     flags |= CLONE_THREAD | CLONE_SETTLS;
     
-    /* Get thread id */
+    /* Because the address of stack is from high to low, so the pointer to 
+     * child stack should be stack + attr->size 
+     */
     int tid = muclone(start_thread, *thread, flags,
                       (char *) stack + attr->stack_size, 0, 0, *thread);
     if (tid < 0) {
@@ -89,5 +116,13 @@ int muthread_create(muthread_t *thread,
         return tid;
     }
 
+    (*thread)->tid = tid;
+    if ((*thread)->param) {
+        status = SYSCALL3(__NR_sched_setscheduler, (*thread)->tid, (*thread)->policy, (*thread)->param);
+        if (status < 0) {
+            muprint("fail to set scheduler \n");
+            return status;
+        }
+    }
     return 0;
 }

@@ -1,6 +1,7 @@
 #include "mu.h"
 
 #include <linux/futex.h>
+#include <sched.h>
 
 /* Normal mutex */
 static int lock_normal(muthread_mutex_t *mutex)
@@ -104,23 +105,83 @@ static int unlock_recursive(muthread_mutex_t *mutex)
     return 0;
 }
 
+/* Priority inheritance mutex*/
+static int lock_priority_inherit(muthread_mutex_t *mutex)
+{
+    muthread_t self = muthread_self();
+    if (mutex->owner) {
+        struct sched_param param;
+        SYSCALL2(__NR_sched_getparam, mutex->owner->tid, &param);
+        if (param.sched_priority < self->param->sched_priority) {
+            param.sched_priority = self->param->sched_priority;
+            int status = sched_setscheduler(mutex->owner->tid, mutex->owner->policy, &param);
+            if (status < 0) {
+                muprint("fail to set scheduler \n");
+                return status;
+            }
+        }
+    }
+    lock_normal(mutex);
+    mutex->owner = self;
+    return 0;
+}
+
+static int trylock_priority_inherit(muthread_mutex_t *mutex)
+{
+    muthread_t self = muthread_self();
+    if (mutex->owner) {
+        struct sched_param param;
+        SYSCALL2(__NR_sched_getparam, mutex->owner->tid, &param);
+        if (param.sched_priority < self->param->sched_priority) {
+            param.sched_priority = self->param->sched_priority;
+            int status = sched_setscheduler(mutex->owner->tid, mutex->owner->policy, &param);
+            if (status < 0) {
+                muprint("fail to set scheduler \n");
+                return status;
+            }
+        }
+    }
+    trylock_normal(mutex);
+    mutex->owner = self;
+    return 0;
+}
+
+static int unlock_priority_inherit(muthread_mutex_t *mutex)
+{
+    muthread_t self = muthread_self();
+    mutex->owner = 0;
+    unlock_normal(mutex);
+    struct sched_param param;
+    SYSCALL2(__NR_sched_getparam, self->tid, &param);
+    if (self->param->sched_priority != param.sched_priority) {
+        int status = sched_setscheduler(self->tid, self->policy, self->param);
+        if (status < 0) {
+            muprint("fail to set scheduler \n");
+            return status;
+        }
+    }
+    return 0;
+}
 /* Mutex function tables */
 static int (*lockers[])(muthread_mutex_t *) = {
     lock_normal,
     lock_errorcheck,
     lock_recursive,
+    lock_priority_inherit,
 };
 
 static int (*trylockers[])(muthread_mutex_t *) = {
     trylock_normal,
     trylock_errorcheck,
     trylock_recursive,
+    trylock_priority_inherit,
 };
 
 static int (*unlockers[])(muthread_mutex_t *) = {
     unlock_normal,
     unlock_errorcheck,
     unlock_recursive,
+    unlock_priority_inherit,
 };
 
 /* Init attributes */
@@ -133,7 +194,7 @@ int muthread_mutexattr_init(muthread_mutexattr_t *attr)
 /* Set attributes */
 int muthread_mutexattr_settype(muthread_mutexattr_t *attr, int type)
 {
-    if (type < TBTHREAD_MUTEX_NORMAL || type > TBTHREAD_MUTEX_RECURSIVE)
+    if (type < TBTHREAD_MUTEX_NORMAL || type > TBTHREAD_MUTEX_PRIO_INHERIT)
         return -EINVAL;
     attr->type = type;
     return 0;
