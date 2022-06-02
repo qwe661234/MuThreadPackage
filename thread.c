@@ -110,7 +110,6 @@ int muthread_create(muthread_t *thread,
      */
     int tid = muclone(start_thread, *thread, flags,
                       (char *) stack + attr->stack_size, 0, 0, *thread);
-
     if (tid < 0) {
         mumunmap(stack, attr->stack_size);
         free(*thread);
@@ -119,7 +118,11 @@ int muthread_create(muthread_t *thread,
 
     (*thread)->tid = tid;
     if ((*thread)->param) {
-        SYSCALL3(__NR_sched_setscheduler, (*thread)->tid, (*thread)->policy, (*thread)->param);
+        status = SYSCALL3(__NR_sched_setscheduler, (*thread)->tid, (*thread)->policy, (*thread)->param);
+        if (status < 0) {
+            muprint("fail to set scheduler \n");
+            return status;
+        }
     }
     return 0;
 }
