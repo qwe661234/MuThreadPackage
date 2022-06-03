@@ -2,7 +2,6 @@
 #include <string.h>
 #include <unistd.h>
 #include <sched.h>
-#include <pthread.h>
 #include "mu.h"
 #define THREADCOUNT 3
 
@@ -40,14 +39,16 @@ int main() {
     muthread_mutexattr_t mattr;
     muthread_attr_init(&attr);
     struct sched_param param;
-    // for priority inheritance mutex
+    /* for muthread priority inheritance mutex */
     // muthread_mutexattr_settype(&mattr, TBTHREAD_MUTEX_PRIO_INHERIT);
+    /* for pthread priority inheritance mutex */
+    // pthread_mutexattr_setprotocol(&mattr, PTHREAD_PRIO_INHERIT);
     // muthread_mutex_init(&mutex_normal, &mattr);
     // for normal mutex
     muthread_mutex_init(&mutex_normal, 0);
-    
     muthread_mutex_init(&mutex_normal_2, 0);
     muthread_attr_setschedpolicy(&attr, SCHED_FIFO);
+    muthread_attr_setinheritsched(&attr, TBTHREAD_EXPLICIT_SCHED);
     param.sched_priority = 10;
     muthread_attr_setschedparam(&attr, &param);
     muthread_create(&th[2], &attr, (void *)Thread3, NULL);

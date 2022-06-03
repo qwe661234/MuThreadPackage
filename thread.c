@@ -38,6 +38,13 @@ int muthread_attr_setschedparam(muthread_attr_t *attr, struct sched_param *param
     return 0; 
 }
 
+int muthread_attr_setinheritsched(muthread_attr_t *attr, int inherit) 
+{
+    if (inherit != TBTHREAD_INHERIT_SCHED && inherit != TBTHREAD_EXPLICIT_SCHED)
+        return EINVAL;
+    attr->flags = inherit;
+    return 0;
+}
 /* Thread function wrapper */
 static int start_thread(void *arg)
 {
@@ -117,7 +124,7 @@ int muthread_create(muthread_t *thread,
     }
 
     (*thread)->tid = tid;
-    if ((*thread)->param) {
+    if (attr->flags) {
         status = SYSCALL3(__NR_sched_setscheduler, (*thread)->tid, (*thread)->policy, (*thread)->param);
         if (status < 0) {
             muprint("fail to set scheduler \n");
