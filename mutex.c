@@ -162,12 +162,66 @@ static int unlock_priority_inherit(muthread_mutex_t *mutex)
     }
     return 0;
 }
+
+/* Priority protection mutex*/
+static int lock_priority_protect(muthread_mutex_t *mutex)
+{
+    muthread_t self = muthread_self();
+    lock_normal(mutex);
+    int ceiling = SYSCALL1(__NR_sched_get_priority_max, self->policy);
+    struct sched_param param;
+    SYSCALL2(__NR_sched_getparam, self->tid, &param);
+    if (param.sched_priority < ceiling) {
+        param.sched_priority = ceiling;
+        int status = sched_setscheduler(self->tid, self->policy, &param);
+        if (status < 0) {
+            muprint("fail to set scheduler \n");
+            return status;
+        }
+    }
+    return 0;
+}
+
+static int trylock_priority_protect(muthread_mutex_t *mutex)
+{
+    muthread_t self = muthread_self();
+    trylock_normal(mutex);
+    int ceiling = SYSCALL1(__NR_sched_get_priority_max, self->policy);
+    struct sched_param param;
+    SYSCALL2(__NR_sched_getparam, self->tid, &param);
+    if (param.sched_priority < ceiling) {
+        param.sched_priority = ceiling;
+        int status = sched_setscheduler(self->tid, self->policy, &param);
+        if (status < 0) {
+            muprint("fail to set scheduler \n");
+            return status;
+        }
+    }
+    return 0;
+}
+
+static int unlock_priority_protect(muthread_mutex_t *mutex)
+{
+    muthread_t self = muthread_self();
+    unlock_normal(mutex);
+    struct sched_param param;
+    SYSCALL2(__NR_sched_getparam, self->tid, &param);
+    if (self->param->sched_priority != param.sched_priority) {
+        int status = sched_setscheduler(self->tid, self->policy, self->param);
+        if (status < 0) {
+            muprint("fail to set scheduler \n");
+            return status;
+        }
+    }
+    return 0;
+}
 /* Mutex function tables */
 static int (*lockers[])(muthread_mutex_t *) = {
     lock_normal,
     lock_errorcheck,
     lock_recursive,
     lock_priority_inherit,
+    lock_priority_protect,
 };
 
 static int (*trylockers[])(muthread_mutex_t *) = {
@@ -175,6 +229,7 @@ static int (*trylockers[])(muthread_mutex_t *) = {
     trylock_errorcheck,
     trylock_recursive,
     trylock_priority_inherit,
+    trylock_priority_protect,
 };
 
 static int (*unlockers[])(muthread_mutex_t *) = {
@@ -182,6 +237,7 @@ static int (*unlockers[])(muthread_mutex_t *) = {
     unlock_errorcheck,
     unlock_recursive,
     unlock_priority_inherit,
+    unlock_priority_protect,
 };
 
 /* Init attributes */
@@ -194,7 +250,7 @@ int muthread_mutexattr_init(muthread_mutexattr_t *attr)
 /* Set attributes */
 int muthread_mutexattr_settype(muthread_mutexattr_t *attr, int type)
 {
-    if (type < TBTHREAD_MUTEX_NORMAL || type > TBTHREAD_MUTEX_PRIO_INHERIT)
+    if (type < TBTHREAD_MUTEX_NORMAL || type > TBTHREAD_MUTEX_PRIO_PROTECT)
         return -EINVAL;
     attr->type = type;
     return 0;

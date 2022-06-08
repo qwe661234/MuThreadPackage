@@ -13,8 +13,9 @@
 
 /*
  * pthread_mutexattr_setprotocol(pthread_mutexattr_t *attr, int protocol);
- * In pthread library, priority inheritance mutex should be set by funciton 
- * pthread_mutexattr_setprotocol, and set its second parameter as PTHREAD_PRIO_INHERIT.
+ * In pthread library, priority inheritance / protection mutex should be set 
+ * by funciton pthread_mutexattr_setprotocol, and set its second parameter as 
+ * PTHREAD_PRIO_INHERIT / PTHREAD_PRIO_PROTECT.
  */
 
 #ifdef PTHREAD
@@ -51,6 +52,7 @@ enum {
     TBTHREAD_MUTEX_ERRORCHECK,
     TBTHREAD_MUTEX_RECURSIVE,
     TBTHREAD_MUTEX_PRIO_INHERIT,
+    TBTHREAD_MUTEX_PRIO_PROTECT,
     TBTHREAD_MUTEX_DEFAULT = 0,
 };
 
