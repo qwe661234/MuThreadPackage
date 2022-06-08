@@ -114,7 +114,7 @@ static int lock_priority_inherit(muthread_mutex_t *mutex)
         SYSCALL2(__NR_sched_getparam, mutex->owner->tid, &param);
         if (param.sched_priority < self->param->sched_priority) {
             param.sched_priority = self->param->sched_priority;
-            int status = sched_setscheduler(mutex->owner->tid, mutex->owner->policy, &param);
+            int status = SYSCALL3(__NR_sched_setscheduler, mutex->owner->tid, mutex->owner->policy, &param);
             if (status < 0) {
                 muprint("fail to set scheduler \n");
                 return status;
@@ -134,7 +134,7 @@ static int trylock_priority_inherit(muthread_mutex_t *mutex)
         SYSCALL2(__NR_sched_getparam, mutex->owner->tid, &param);
         if (param.sched_priority < self->param->sched_priority) {
             param.sched_priority = self->param->sched_priority;
-            int status = sched_setscheduler(mutex->owner->tid, mutex->owner->policy, &param);
+            int status = SYSCALL3(__NR_sched_setscheduler, mutex->owner->tid, mutex->owner->policy, &param);
             if (status < 0) {
                 muprint("fail to set scheduler \n");
                 return status;
@@ -154,7 +154,7 @@ static int unlock_priority_inherit(muthread_mutex_t *mutex)
     struct sched_param param;
     SYSCALL2(__NR_sched_getparam, self->tid, &param);
     if (self->param->sched_priority != param.sched_priority) {
-        int status = sched_setscheduler(self->tid, self->policy, self->param);
+        int status = SYSCALL3(__NR_sched_setscheduler, self->tid, self->policy, self->param);
         if (status < 0) {
             muprint("fail to set scheduler \n");
             return status;
@@ -173,7 +173,7 @@ static int lock_priority_protect(muthread_mutex_t *mutex)
     SYSCALL2(__NR_sched_getparam, self->tid, &param);
     if (param.sched_priority < ceiling) {
         param.sched_priority = ceiling;
-        int status = sched_setscheduler(self->tid, self->policy, &param);
+        int status = SYSCALL3(__NR_sched_setscheduler, self->tid, self->policy, &param);
         if (status < 0) {
             muprint("fail to set scheduler \n");
             return status;
@@ -191,7 +191,7 @@ static int trylock_priority_protect(muthread_mutex_t *mutex)
     SYSCALL2(__NR_sched_getparam, self->tid, &param);
     if (param.sched_priority < ceiling) {
         param.sched_priority = ceiling;
-        int status = sched_setscheduler(self->tid, self->policy, &param);
+        int status = SYSCALL3(__NR_sched_setscheduler, self->tid, self->policy, &param);
         if (status < 0) {
             muprint("fail to set scheduler \n");
             return status;
@@ -207,7 +207,7 @@ static int unlock_priority_protect(muthread_mutex_t *mutex)
     struct sched_param param;
     SYSCALL2(__NR_sched_getparam, self->tid, &param);
     if (self->param->sched_priority != param.sched_priority) {
-        int status = sched_setscheduler(self->tid, self->policy, self->param);
+        int status = SYSCALL3(__NR_sched_setscheduler, self->tid, self->policy, self->param);
         if (status < 0) {
             muprint("fail to set scheduler \n");
             return status;
