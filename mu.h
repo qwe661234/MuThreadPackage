@@ -33,6 +33,7 @@
 #define muthread_self pthread_self
 #define muthread_mutexattr_init pthread_mutexattr_init
 #define muthread_mutexattr_settype pthread_mutexattr_settype
+#define muthread_mutexattr_setprotocol pthread_mutexattr_setprotocol
 #define muthread_mutex_init pthread_mutex_init
 #define muthread_mutex_lock pthread_mutex_lock
 #define muthread_mutex_trylock pthread_mutex_trylock
@@ -41,6 +42,9 @@
 #define TBTHREAD_MUTEX_ERRORCHECK PTHREAD_MUTEX_ERRORCHECK
 #define TBTHREAD_MUTEX_RECURSIVE PTHREAD_MUTEX_RECURSIVE
 #define TBTHREAD_MUTEX_DEFAULT PTHREAD_MUTEX_DEFAULT
+#define TBTHREAD_PRIO_NONE PTHREAD_PRIO_NONE
+#define TBTHREAD_PRIO_INHERIT PTHREAD_PRIO_INHERIT
+#define TBTHREAD_PRIO_PROTECT PTHREAD_PRIO_PROTECT
 #define TBTHREAD_INHERIT_SCHED PTHREAD_INHERIT_SCHED
 #define TBTHREAD_EXPLICIT_SCHED PTHREAD_EXPLICIT_SCHED
 #define muprint printf
@@ -51,9 +55,14 @@ enum {
     TBTHREAD_MUTEX_NORMAL = 0,
     TBTHREAD_MUTEX_ERRORCHECK,
     TBTHREAD_MUTEX_RECURSIVE,
-    TBTHREAD_MUTEX_PRIO_INHERIT,
-    TBTHREAD_MUTEX_PRIO_PROTECT,
     TBTHREAD_MUTEX_DEFAULT = 0,
+};
+
+/* Mutex attribute's protocol */
+enum{
+    TBTHREAD_PRIO_NONE,
+    TBTHREAD_PRIO_INHERIT = 3,
+    TBTHREAD_PRIO_PROTECT = 4,
 };
 
 /* Scheduler inheritance */
@@ -122,6 +131,7 @@ static inline muthread_t muthread_self()
 /* Mutexes */
 int muthread_mutexattr_init(muthread_mutexattr_t *attr);
 int muthread_mutexattr_settype(muthread_mutexattr_t *attr, int type);
+int muthread_mutexattr_setprotocol(muthread_mutexattr_t *attr, int protocol);
 
 int muthread_mutex_init(muthread_mutex_t *mutex,
                         const muthread_mutexattr_t *attr);
