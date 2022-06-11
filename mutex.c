@@ -2,8 +2,11 @@
 
 #include <linux/futex.h>
 #include <sched.h>
-#define MUTEX_TYPE_MASK 3
+#define MUTEX_TYPE_MASK 0x000f
+#define MUTEX_PROTOCOL_MASK 0x00f0
+#define MUTEX_PRIOCEILING_MASK 0xff00
 #define MUTEX_PROTOCOL_SHIFT 4
+#define MUTEX_PRIOCEILING_SHIFT 8
 
 /* Normal mutex */
 static int lock_normal(muthread_mutex_t *mutex)
@@ -171,7 +174,7 @@ static int lock_priority_protect(muthread_mutex_t *mutex)
 {
     muthread_t self = muthread_self();
     lock_normal(mutex);
-    int ceiling = SYSCALL1(__NR_sched_get_priority_max, self->policy);
+    int ceiling = (mutex->type & MUTEX_PRIOCEILING_MASK) >> MUTEX_PRIOCEILING_SHIFT;
     struct sched_param param;
     SYSCALL2(__NR_sched_getparam, self->tid, &param);
     if (param.sched_priority < ceiling) {
@@ -190,7 +193,7 @@ static int trylock_priority_protect(muthread_mutex_t *mutex)
     muthread_t self = muthread_self();
     int ret = trylock_normal(mutex);
     if (ret == 0) {
-        int ceiling = SYSCALL1(__NR_sched_get_priority_max, self->policy);
+        int ceiling = (mutex->type & MUTEX_PRIOCEILING_MASK) >> MUTEX_PRIOCEILING_SHIFT;
         struct sched_param param;
         SYSCALL2(__NR_sched_getparam, self->tid, &param);
         if (param.sched_priority < ceiling) {
@@ -257,7 +260,7 @@ int muthread_mutexattr_settype(muthread_mutexattr_t *attr, int type)
 {
     if (type < TBTHREAD_MUTEX_NORMAL || type > TBTHREAD_MUTEX_ERRORCHECK)
         return -EINVAL;
-    attr->type = ((attr->type >> 2) << 2) | type;
+    attr->type = (attr->type & ~(MUTEX_TYPE_MASK)) | type;
     return 0;
 }
 
@@ -266,7 +269,17 @@ int muthread_mutexattr_setprotocol(muthread_mutexattr_t *attr, int protocol)
     if (protocol != TBTHREAD_PRIO_NONE && protocol != TBTHREAD_PRIO_INHERIT
       && protocol != TBTHREAD_PRIO_PROTECT)
         return -EINVAL;
-    attr->type = (attr->type & MUTEX_TYPE_MASK) | (protocol << MUTEX_PROTOCOL_SHIFT);
+    attr->type = (attr->type & ~(MUTEX_PROTOCOL_MASK)) | (protocol << MUTEX_PROTOCOL_SHIFT);
+    return 0;
+}
+
+int muthread_mutexattr_setprioceiling(muthread_mutexattr_t *attr, int prioceiling)
+{
+    uint16_t prio_max = SYSCALL1(__NR_sched_get_priority_max, SCHED_FIFO);
+    uint16_t prio_min = SYSCALL1(__NR_sched_get_priority_min, SCHED_FIFO);
+    if (prioceiling > prio_max || prioceiling < prio_min)
+        return -EINVAL;
+    attr->type = (attr->type & ~(MUTEX_TYPE_MASK)) | (prioceiling << MUTEX_PRIOCEILING_SHIFT);
     return 0;
 }
 
@@ -274,7 +287,7 @@ int muthread_mutexattr_setprotocol(muthread_mutexattr_t *attr, int protocol)
 int muthread_mutex_init(muthread_mutex_t *mutex,
                         const muthread_mutexattr_t *attr)
 {
-    uint8_t type = TBTHREAD_MUTEX_DEFAULT;
+    uint16_t type = TBTHREAD_MUTEX_DEFAULT;
     if (attr)
         type = attr->type;
     mutex->futex = 0;
@@ -287,7 +300,7 @@ int muthread_mutex_init(muthread_mutex_t *mutex,
 /* Lock the mutex */
 int muthread_mutex_lock(muthread_mutex_t *mutex)
 {
-    uint8_t type = (mutex->type >> MUTEX_PROTOCOL_SHIFT) & (MUTEX_TYPE_MASK);
+    uint16_t type = (mutex->type & MUTEX_PROTOCOL_MASK) >> MUTEX_PROTOCOL_SHIFT;
     if(!type)
         type = mutex->type & MUTEX_TYPE_MASK;
     return (*lockers[type])(mutex);
@@ -296,7 +309,7 @@ int muthread_mutex_lock(muthread_mutex_t *mutex)
 /* Try locking the mutex */
 int muthread_mutex_trylock(muthread_mutex_t *mutex)
 {
-    uint8_t type = (mutex->type >> MUTEX_PROTOCOL_SHIFT) & (MUTEX_TYPE_MASK);
+    uint16_t type = (mutex->type & MUTEX_PROTOCOL_MASK) >> MUTEX_PROTOCOL_SHIFT;
     if(!type)
         type = mutex->type & MUTEX_TYPE_MASK;
     return (*trylockers[type])(mutex);
@@ -305,7 +318,7 @@ int muthread_mutex_trylock(muthread_mutex_t *mutex)
 /* Unlock the mutex */
 int muthread_mutex_unlock(muthread_mutex_t *mutex)
 {
-    uint8_t type = (mutex->type >> MUTEX_PROTOCOL_SHIFT) & (MUTEX_TYPE_MASK);
+    uint16_t type = (mutex->type >> MUTEX_PROTOCOL_SHIFT) & (MUTEX_TYPE_MASK);
     if(!type)
         type = mutex->type & MUTEX_TYPE_MASK;
     return (*unlockers[type])(mutex);

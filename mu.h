@@ -34,6 +34,7 @@
 #define muthread_mutexattr_init pthread_mutexattr_init
 #define muthread_mutexattr_settype pthread_mutexattr_settype
 #define muthread_mutexattr_setprotocol pthread_mutexattr_setprotocol
+#define muthread_mutexattr_setprioceiling pthread_mutexattr_setprioceiling
 #define muthread_mutex_init pthread_mutex_init
 #define muthread_mutex_lock pthread_mutex_lock
 #define muthread_mutex_trylock pthread_mutex_trylock
@@ -92,13 +93,14 @@ typedef struct muthread {
 
 /* Mutex attributes */
 typedef struct {
-    uint8_t type;
+    uint16_t type;
 } muthread_mutexattr_t;
 
 /* Mutex */
 typedef struct {
     _Atomic int futex;
-    uint8_t type;
+    /* bit 0 ~ 7: prioceiling, bit 8 ~ 11: protocol, bit 12 ~ 15: mutex type */
+    uint16_t type;
     muthread_t owner;
     uint64_t counter;
 } muthread_mutex_t;
@@ -132,6 +134,7 @@ static inline muthread_t muthread_self()
 int muthread_mutexattr_init(muthread_mutexattr_t *attr);
 int muthread_mutexattr_settype(muthread_mutexattr_t *attr, int type);
 int muthread_mutexattr_setprotocol(muthread_mutexattr_t *attr, int protocol);
+int muthread_mutexattr_setprioceiling(muthread_mutexattr_t *attr, int prioceiling);
 
 int muthread_mutex_init(muthread_mutex_t *mutex,
                         const muthread_mutexattr_t *attr);
