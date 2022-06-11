@@ -39,13 +39,12 @@ int main() {
     muthread_mutexattr_t mattr;
     muthread_attr_init(&attr);
     struct sched_param param;
-    /* for muthread priority inheritance mutex */
-    // muthread_mutexattr_settype(&mattr, TBTHREAD_MUTEX_PRIO_INHERIT);
-    /* for pthread priority inheritance mutex */
-    // pthread_mutexattr_setprotocol(&mattr, PTHREAD_PRIO_INHERIT);
-    // muthread_mutex_init(&mutex_normal, &mattr);
+    /* for priority inheritance mutex */
+    muthread_mutexattr_setprotocol(&mattr, TBTHREAD_PRIO_INHERIT);
+    muthread_mutex_init(&mutex_normal, &mattr);
     // for normal mutex
-    muthread_mutex_init(&mutex_normal, 0);
+    // muthread_mutex_init(&mutex_normal, 0);
+    
     muthread_mutex_init(&mutex_normal_2, 0);
     muthread_attr_setschedpolicy(&attr, SCHED_FIFO);
     muthread_attr_setinheritsched(&attr, TBTHREAD_EXPLICIT_SCHED);
