@@ -46,12 +46,13 @@ static int lock_errorcheck(muthread_mutex_t *mutex)
 
 static int trylock_errorcheck(muthread_mutex_t *mutex)
 {
-    if (mutex->owner == muthread_self())
+    muthread_t self = muthread_self();
+    if (mutex->owner == self)
         return -EDEADLK;
 
     int ret = trylock_normal(mutex);
     if (ret == 0)
-        mutex->owner = muthread_self();
+        mutex->owner = self;
     return ret;
 }
 
@@ -59,8 +60,8 @@ static int unlock_errorcheck(muthread_mutex_t *mutex)
 {
     if (mutex->owner != muthread_self() || mutex->futex == 0)
         return -EPERM;
-    mutex->owner = 0;
     unlock_normal(mutex);
+    mutex->owner = 0;
     return 0;
 }
 
@@ -104,8 +105,8 @@ static int unlock_recursive(muthread_mutex_t *mutex)
 
     --mutex->counter;
     if (mutex->counter == 0) {
+        unlock_normal(mutex);
         mutex->owner = 0;
-        return unlock_normal(mutex);
     }
     return 0;
 }
@@ -114,58 +115,67 @@ static int unlock_recursive(muthread_mutex_t *mutex)
 static int lock_priority_inherit(muthread_mutex_t *mutex)
 {
     muthread_t self = muthread_self();
+    uint16_t type = mutex->type & MUTEX_TYPE_MASK;
+    if (mutex->owner == self && type == TBTHREAD_MUTEX_ERRORCHECK)
+        return -EDEADLK;
+    if (type == TBTHREAD_MUTEX_RECURSIVE && mutex->counter == (uint64_t) -1)
+        return -EAGAIN;
+        
     if (mutex->owner) {
-        struct sched_param param;
-        SYSCALL2(__NR_sched_getparam, mutex->owner->tid, &param);
-        if (param.sched_priority < self->param->sched_priority) {
-            param.sched_priority = self->param->sched_priority;
-            int status = SYSCALL3(__NR_sched_setscheduler, mutex->owner->tid, mutex->owner->policy, &param);
-            if (status < 0) {
-                muprint("fail to set scheduler \n");
-                return status;
-            }
-        }
+        if (change_muthread_priority(mutex->owner, self->param->sched_priority) < 0)
+            muprint("fail to change priority\n");
     }
     lock_normal(mutex);
     mutex->owner = self;
+    if (type == TBTHREAD_MUTEX_RECURSIVE)
+        ++mutex->counter;
     return 0;
 }
 
 static int trylock_priority_inherit(muthread_mutex_t *mutex)
 {
     muthread_t self = muthread_self();
+    uint16_t type = mutex->type & MUTEX_TYPE_MASK;
+    if (mutex->owner == self && type == TBTHREAD_MUTEX_ERRORCHECK)
+        return -EDEADLK;
+    if (type == TBTHREAD_MUTEX_RECURSIVE && mutex->counter == (uint64_t) -1)
+        return -EAGAIN;
+
     if (mutex->owner) {
-        struct sched_param param;
-        SYSCALL2(__NR_sched_getparam, mutex->owner->tid, &param);
-        if (param.sched_priority < self->param->sched_priority) {
-            param.sched_priority = self->param->sched_priority;
-            int status = SYSCALL3(__NR_sched_setscheduler, mutex->owner->tid, mutex->owner->policy, &param);
-            if (status < 0) {
-                muprint("fail to set scheduler \n");
-                return status;
-            }
-        }
+        if (change_muthread_priority(mutex->owner, self->param->sched_priority) < 0)
+            muprint("fail to change priority\n");
     }
     int ret = trylock_normal(mutex);
-    if (ret == 0)
+    if (ret == 0) {
         mutex->owner = self;
+        if (type == TBTHREAD_MUTEX_RECURSIVE)
+            ++mutex->counter;
+    }
     return ret;
 }
 
 static int unlock_priority_inherit(muthread_mutex_t *mutex)
 {
     muthread_t self = muthread_self();
-    mutex->owner = 0;
-    unlock_normal(mutex);
-    struct sched_param param;
-    SYSCALL2(__NR_sched_getparam, self->tid, &param);
-    if (self->param->sched_priority != param.sched_priority) {
-        int status = SYSCALL3(__NR_sched_setscheduler, self->tid, self->policy, self->param);
-        if (status < 0) {
-            muprint("fail to set scheduler \n");
-            return status;
+    uint16_t type = mutex->type & MUTEX_TYPE_MASK;
+    if (type == TBTHREAD_MUTEX_ERRORCHECK && 
+        (mutex->owner != self || mutex->futex == 0))
+        return -EPERM;
+    if (type == TBTHREAD_MUTEX_RECURSIVE && mutex->owner != self)
+        return -EPERM;
+
+    if (type == TBTHREAD_MUTEX_RECURSIVE) {
+        --mutex->counter;
+        if (mutex->counter == 0) {
+            unlock_normal(mutex);
+            mutex->owner = 0;
         }
+    } else {
+        unlock_normal(mutex);
+        mutex->owner = 0;
     }
+    if (change_muthread_priority(self, -1) < 0) 
+        muprint("fail to set priority to original\n");
     return 0;
 }
 
@@ -173,37 +183,39 @@ static int unlock_priority_inherit(muthread_mutex_t *mutex)
 static int lock_priority_protect(muthread_mutex_t *mutex)
 {
     muthread_t self = muthread_self();
+    uint16_t type = mutex->type & MUTEX_TYPE_MASK;
+    if (mutex->owner == self && type == TBTHREAD_MUTEX_ERRORCHECK)
+        return -EDEADLK;
+    if (type == TBTHREAD_MUTEX_RECURSIVE && mutex->counter == (uint64_t) -1)
+        return -EAGAIN;
+
     lock_normal(mutex);
+    mutex->owner = self;
+    if (type == TBTHREAD_MUTEX_RECURSIVE)
+        ++mutex->counter;
     int ceiling = (mutex->type & MUTEX_PRIOCEILING_MASK) >> MUTEX_PRIOCEILING_SHIFT;
-    struct sched_param param;
-    SYSCALL2(__NR_sched_getparam, self->tid, &param);
-    if (param.sched_priority < ceiling) {
-        param.sched_priority = ceiling;
-        int status = SYSCALL3(__NR_sched_setscheduler, self->tid, self->policy, &param);
-        if (status < 0) {
-            muprint("fail to set scheduler \n");
-            return status;
-        }
-    }
+    if (change_muthread_priority(self, ceiling) < 0)
+        muprint("fail to change priority\n");
     return 0;
 }
 
 static int trylock_priority_protect(muthread_mutex_t *mutex)
 {
     muthread_t self = muthread_self();
+    uint16_t type = mutex->type & MUTEX_TYPE_MASK;
+    if (mutex->owner == self && type == TBTHREAD_MUTEX_ERRORCHECK)
+        return -EDEADLK;
+    if (type == TBTHREAD_MUTEX_RECURSIVE && mutex->counter == (uint64_t) -1)
+        return -EAGAIN;
+
     int ret = trylock_normal(mutex);
     if (ret == 0) {
+        mutex->owner = self;
+        if (type == TBTHREAD_MUTEX_RECURSIVE)
+            ++mutex->counter;
         int ceiling = (mutex->type & MUTEX_PRIOCEILING_MASK) >> MUTEX_PRIOCEILING_SHIFT;
-        struct sched_param param;
-        SYSCALL2(__NR_sched_getparam, self->tid, &param);
-        if (param.sched_priority < ceiling) {
-            param.sched_priority = ceiling;
-            int status = SYSCALL3(__NR_sched_setscheduler, self->tid, self->policy, &param);
-            if (status < 0) {
-                muprint("fail to set scheduler \n");
-                return status;
-            }
-        }
+        if (change_muthread_priority(self, ceiling) < 0)
+            muprint("fail to change priority\n");
     }
     return ret;
 }
@@ -211,16 +223,25 @@ static int trylock_priority_protect(muthread_mutex_t *mutex)
 static int unlock_priority_protect(muthread_mutex_t *mutex)
 {
     muthread_t self = muthread_self();
-    unlock_normal(mutex);
-    struct sched_param param;
-    SYSCALL2(__NR_sched_getparam, self->tid, &param);
-    if (self->param->sched_priority != param.sched_priority) {
-        int status = SYSCALL3(__NR_sched_setscheduler, self->tid, self->policy, self->param);
-        if (status < 0) {
-            muprint("fail to set scheduler \n");
-            return status;
+    uint16_t type = mutex->type & MUTEX_TYPE_MASK;
+    if (type == TBTHREAD_MUTEX_ERRORCHECK && 
+        (mutex->owner != self || mutex->futex == 0))
+        return -EPERM;
+    if (type == TBTHREAD_MUTEX_RECURSIVE && mutex->owner != self)
+        return -EPERM;
+
+    if (type == TBTHREAD_MUTEX_RECURSIVE) {
+        --mutex->counter;
+        if (mutex->counter == 0) {
+            unlock_normal(mutex);
+            mutex->owner = 0;
         }
+    } else {
+        unlock_normal(mutex);
+        mutex->owner = 0;
     }
+    if (change_muthread_priority(self, -1) < 0)
+        muprint("fail to set priority to original\n");
     return 0;
 }
 /* Mutex function tables */
