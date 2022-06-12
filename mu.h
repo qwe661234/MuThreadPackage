@@ -197,3 +197,6 @@ int muclone(int (*fn)(void *), void *arg, int flags, void *child_stack, ...
     })
 #define atomic_bool_cmpxchg(ptr, old, new)                                          \
             _atomic_bool_cmpxchg(ptr, __UNIQUE_ID(old), __UNIQUE_ID(new), old, new) \
+
+int get_current_priority(muthread_t target);
+int change_muthread_priority(muthread_t target, uint32_t priority);

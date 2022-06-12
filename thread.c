@@ -125,6 +125,10 @@ int muthread_create(muthread_t *thread,
 
     (*thread)->tid = tid;
     if (attr->flags) {
+        if(!(*thread)->param || !(*thread)->policy) {
+            muprint("sched parameter or policy is NULL \n");
+            return -1;
+        }
         status = SYSCALL3(__NR_sched_setscheduler, (*thread)->tid, (*thread)->policy, (*thread)->param);
         if (status < 0) {
             muprint("fail to set scheduler \n");
