@@ -97,6 +97,7 @@ int main(int argc, char **argv)
     muthread_mutex_t mutex_errorcheck;
     muthread_mutex_t mutex_recursive;
 
+    muthread_mutexattr_setprotocol(&mattr, TBTHREAD_PRIO_INHERIT);
     muthread_mutexattr_init(&mattr);
     muthread_mutex_init(&mutex_normal, 0);
     muthread_mutexattr_settype(&mattr, TBTHREAD_MUTEX_ERRORCHECK);
@@ -106,7 +107,12 @@ int main(int argc, char **argv)
 
     /* Spawn the threads to test the normal mutex */
     muprint("[thread main] Testing normal mutex\n");
+    struct sched_param param;
     muthread_attr_init(&attr);
+    muthread_attr_setschedpolicy(&attr, SCHED_FIFO);
+    muthread_attr_setinheritsched(&attr, TBTHREAD_EXPLICIT_SCHED);
+    param.sched_priority = 10;
+    muthread_attr_setschedparam(&attr, &param);
     for (int i = 0; i < 5; ++i) {
         st = muthread_create(&thread[i], &attr, thread_func_normal,
                              &mutex_normal);
@@ -141,7 +147,6 @@ int main(int argc, char **argv)
     /* Spawn the threads to test the recursive mutex */
     muprint("---\n");
     muprint("[thread main] Testing recursive mutex\n");
-    muthread_attr_init(&attr);
     for (int i = 0; i < 5; ++i) {
         st = muthread_create(&thread[i], &attr, thread_func_recursive,
                              &mutex_recursive);
