@@ -283,3 +283,93 @@ void free(void *ptr)
     chunk->size &= ~MEMCHUNK_USED;
     futex_unlock(&memory_lock);
 }
+
+/* Get thread current priority and change thread priority */
+int get_current_priority(muthread_t target) 
+{
+    int result = 0;
+    struct sched_param param;
+    futex_lock(&(target->priority_lock));
+    if (SYSCALL2(__NR_sched_getparam, target->tid, &param) != 0)
+        result = -1;
+    else 
+        result = param.sched_priority;
+    futex_unlock(&(target->priority_lock));
+    return result;
+}
+
+int change_muthread_priority(muthread_t target, uint32_t priority) 
+{
+    uint16_t prio_max, prio_min;
+    int status = 0, prio_cur = 0;
+    struct sched_param param;
+    /* set priority to original */
+    if ((prio_cur = get_current_priority(target)) < 0)
+        return -1;
+    if (priority == -1) {
+        if(prio_cur != target->param->sched_priority) {
+            futex_lock(&(target->priority_lock));
+            param.sched_priority = target->param->sched_priority;
+            status = SYSCALL2(__NR_sched_setparam, target->tid, &param);
+            futex_unlock(&(target->priority_lock));
+        }
+        return status;
+    }
+
+    prio_max = SYSCALL1(__NR_sched_get_priority_max, target->policy);
+    prio_min = SYSCALL1(__NR_sched_get_priority_min, target->policy);
+    /* raise priority */
+    if (priority > prio_max || priority < prio_min)
+        return -EINVAL;
+    if (prio_cur < priority) {
+        futex_lock(&(target->priority_lock));
+        param.sched_priority = priority;
+        status = SYSCALL2(__NR_sched_setparam, target->tid, &param);       
+        futex_unlock(&(target->priority_lock));
+    }
+    return status;
+}
+
+/* Maintain wait_list */
+void wait_list_add(muthread_t list_owner, muthread_t target) 
+{
+    wait_list_t *node = malloc(sizeof(wait_list_t));
+    node->th = target;
+    node->next = list_owner->list;
+    list_owner->list = node;
+}
+
+void wait_list_delete(muthread_t list_owner, muthread_t target) 
+{
+    wait_list_t *cur = list_owner->list, *prev = list_owner->list;
+    while (cur) {
+        if (cur->th == target)
+            break;
+        prev = cur;
+        cur = cur->next;
+    }
+    if (cur) {
+        wait_list_t *tmp = cur;
+        if (prev == cur)
+            list_owner->list = list_owner->list->next;
+        else
+            prev->next = cur->next;
+        free(tmp);
+    }
+}
+
+int inherit_priority_chaining(muthread_t list_owner, uint32_t priority) 
+{
+    wait_list_t *cur = list_owner->list;
+    int status = 0;
+    while(cur) {
+        status = change_muthread_priority(cur->th, priority);
+        if (status < 0)
+            return -1;
+        status = inherit_priority_chaining(cur->th, priority);
+        if (status < 0)
+            return -1;
+        cur = cur->next;
+    }
+    return status;
+}

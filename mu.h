@@ -34,6 +34,7 @@
 #define muthread_mutexattr_init pthread_mutexattr_init
 #define muthread_mutexattr_settype pthread_mutexattr_settype
 #define muthread_mutexattr_setprotocol pthread_mutexattr_setprotocol
+#define muthread_mutexattr_setprioceiling pthread_mutexattr_setprioceiling
 #define muthread_mutex_init pthread_mutex_init
 #define muthread_mutex_lock pthread_mutex_lock
 #define muthread_mutex_trylock pthread_mutex_trylock
@@ -78,7 +79,9 @@ typedef struct {
     struct sched_param *param;
 } muthread_attr_t;
 
+ 
 /* Thread descriptor */
+typedef struct wait_list wait_list_t;
 typedef struct muthread {
     struct muthread *self;
     void *stack;
@@ -88,17 +91,25 @@ typedef struct muthread {
     uint32_t tid;
     uint16_t policy;
     struct sched_param *param;
+    _Atomic int priority_lock;
+    wait_list_t *list;
 } * muthread_t;
+
+struct wait_list {
+    muthread_t th;
+    struct wait_list *next;
+};
 
 /* Mutex attributes */
 typedef struct {
-    uint8_t type;
+    uint16_t type;
 } muthread_mutexattr_t;
 
 /* Mutex */
 typedef struct {
     _Atomic int futex;
-    uint8_t type;
+    /* bit 0 ~ 7: prioceiling, bit 8 ~ 11: protocol, bit 12 ~ 15: mutex type */
+    uint16_t type;
     muthread_t owner;
     uint64_t counter;
 } muthread_mutex_t;
@@ -132,6 +143,7 @@ static inline muthread_t muthread_self()
 int muthread_mutexattr_init(muthread_mutexattr_t *attr);
 int muthread_mutexattr_settype(muthread_mutexattr_t *attr, int type);
 int muthread_mutexattr_setprotocol(muthread_mutexattr_t *attr, int protocol);
+int muthread_mutexattr_setprioceiling(muthread_mutexattr_t *attr, int prioceiling);
 
 int muthread_mutex_init(muthread_mutex_t *mutex,
                         const muthread_mutexattr_t *attr);
@@ -194,3 +206,11 @@ int muclone(int (*fn)(void *), void *arg, int flags, void *child_stack, ...
     })
 #define atomic_bool_cmpxchg(ptr, old, new)                                          \
             _atomic_bool_cmpxchg(ptr, __UNIQUE_ID(old), __UNIQUE_ID(new), old, new) \
+
+#ifndef PTHREAD
+int get_current_priority(muthread_t target);
+int change_muthread_priority(muthread_t target, uint32_t priority);
+void wait_list_add(muthread_t list_owner, muthread_t target);
+void wait_list_delete(muthread_t list_owner, muthread_t target);
+int inherit_priority_chaining(muthread_t list_owner, uint32_t priority);
+#endif
