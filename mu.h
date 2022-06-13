@@ -79,7 +79,9 @@ typedef struct {
     struct sched_param *param;
 } muthread_attr_t;
 
+ 
 /* Thread descriptor */
+typedef struct wait_list wait_list_t;
 typedef struct muthread {
     struct muthread *self;
     void *stack;
@@ -89,7 +91,14 @@ typedef struct muthread {
     uint32_t tid;
     uint16_t policy;
     struct sched_param *param;
+    _Atomic int priority_lock;
+    wait_list_t *list;
 } * muthread_t;
+
+struct wait_list {
+    muthread_t th;
+    struct wait_list *next;
+};
 
 /* Mutex attributes */
 typedef struct {
@@ -198,5 +207,10 @@ int muclone(int (*fn)(void *), void *arg, int flags, void *child_stack, ...
 #define atomic_bool_cmpxchg(ptr, old, new)                                          \
             _atomic_bool_cmpxchg(ptr, __UNIQUE_ID(old), __UNIQUE_ID(new), old, new) \
 
+#ifndef PTHREAD
 int get_current_priority(muthread_t target);
 int change_muthread_priority(muthread_t target, uint32_t priority);
+void wait_list_add(muthread_t list_owner, muthread_t target);
+void wait_list_delete(muthread_t list_owner, muthread_t target);
+int inherit_priority_chaining(muthread_t list_owner, uint32_t priority);
+#endif
