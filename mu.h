@@ -92,6 +92,7 @@ typedef struct muthread {
     uint16_t policy;
     struct sched_param *param;
     _Atomic int priority_lock;
+    _Atomic int wait_list_lock;
     wait_list_t *list;
 } * muthread_t;
 

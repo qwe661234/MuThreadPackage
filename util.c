@@ -334,9 +334,11 @@ int change_muthread_priority(muthread_t target, uint32_t priority)
 void wait_list_add(muthread_t list_owner, muthread_t target) 
 {
     wait_list_t *node = malloc(sizeof(wait_list_t));
+    futex_lock(&(list_owner->wait_list_lock));
     node->th = target;
     node->next = list_owner->list;
     list_owner->list = node;
+    futex_unlock(&(list_owner->wait_list_lock));
 }
 
 void wait_list_delete(muthread_t list_owner, muthread_t target) 
@@ -350,16 +352,19 @@ void wait_list_delete(muthread_t list_owner, muthread_t target)
     }
     if (cur) {
         wait_list_t *tmp = cur;
+        futex_lock(&(list_owner->wait_list_lock));
         if (prev == cur)
             list_owner->list = list_owner->list->next;
         else
             prev->next = cur->next;
+        futex_unlock(&(list_owner->wait_list_lock));
         free(tmp);
     }
 }
 
 int inherit_priority_chaining(muthread_t list_owner, uint32_t priority) 
 {
+    futex_lock(&(list_owner->wait_list_lock));
     wait_list_t *cur = list_owner->list;
     int status = 0;
     while(cur) {
@@ -371,5 +376,6 @@ int inherit_priority_chaining(muthread_t list_owner, uint32_t priority)
             return -1;
         cur = cur->next;
     }
+    futex_unlock(&(list_owner->wait_list_lock));
     return status;
 }
