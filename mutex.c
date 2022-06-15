@@ -121,22 +121,19 @@ static int lock_priority_inherit(muthread_mutex_t *mutex)
     if (type == TBTHREAD_MUTEX_RECURSIVE && mutex->counter == (uint64_t) -1)
         return -EAGAIN;
     
-    muthread_t target;
     if (mutex->owner) {
         int status = change_muthread_priority(mutex->owner, self->param->sched_priority);
         if (status < 0)
             muprint("fail to change priority\n");
         else {
-            target = mutex->owner;
-            wait_list_add(self, target);
+            wait_list_add(self, mutex);
             status = inherit_priority_chaining(mutex->owner, self->param->sched_priority);
             if (status < 0)
                 muprint("fail to change priority\n");
         }
     }
     lock_normal(mutex);
-    if (target)
-        wait_list_delete(self, target);
+    wait_list_delete(self, mutex);
     mutex->owner = self;
     if (type == TBTHREAD_MUTEX_RECURSIVE)
         ++mutex->counter;
@@ -152,14 +149,12 @@ static int trylock_priority_inherit(muthread_mutex_t *mutex)
     if (type == TBTHREAD_MUTEX_RECURSIVE && mutex->counter == (uint64_t) -1)
         return -EAGAIN;
 
-    muthread_t target;
     if (mutex->owner) {
         int status = change_muthread_priority(mutex->owner, self->param->sched_priority);
         if (status < 0)
             muprint("fail to change priority\n");
         else {
-            target = mutex->owner;
-            wait_list_add(self, target);
+            wait_list_add(self, mutex);
             status = inherit_priority_chaining(mutex->owner, self->param->sched_priority);
             if (status < 0)
                 muprint("fail to change priority\n");
@@ -167,8 +162,7 @@ static int trylock_priority_inherit(muthread_mutex_t *mutex)
     }
     int ret = trylock_normal(mutex);
     if (ret == 0) {
-        if (target)
-            wait_list_delete(self, target);
+        wait_list_delete(self, mutex);
         mutex->owner = self;
         if (type == TBTHREAD_MUTEX_RECURSIVE)
             ++mutex->counter;
