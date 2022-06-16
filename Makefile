@@ -2,9 +2,9 @@ CFLAGS = -Wall -fno-stack-protector -I. -pthread -lpthread
 
 ifeq ("$(PTHREAD)","1")
 	CFLAGS += -DPTHREAD
-	OBJ:= priority_test.c
+	OBJ:= TestCases/$(FILE).c
 else
-	OBJ:= test.c \
+	OBJ:= TestCases/$(FILE).c \
 		mutex.c \
 		thread.c \
 		util.c \

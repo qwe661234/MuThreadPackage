@@ -1,6 +1,5 @@
 #include <stdlib.h>
 #include <string.h>
-#include <pthread.h>
 #include <time.h>
 #include <unistd.h>
 #include "mu.h"
@@ -15,22 +14,25 @@ static inline long long get_nanotime()
 
 int count = 0;
 void *add (void *arg){
-    pthread_mutex_t *mutex = (pthread_mutex_t *) arg;
-	pthread_mutex_lock(mutex);
+    muthread_mutex_t *mutex = (muthread_mutex_t *) arg;
+	muthread_mutex_lock(mutex);
     for(int i = 0; i < 10; i++)
 	    count++;
-	pthread_mutex_unlock(mutex);
+	muthread_mutex_unlock(mutex);
     return 0;
 }
 
 int main() {
     int st;
-    pthread_t th[THREADCOUNT];
-    pthread_mutex_t mutex_normal = PTHREAD_MUTEX_INITIALIZER;
+    muthread_t th[THREADCOUNT];
+    muthread_mutex_t mutex_normal;
+    muthread_attr_t attr;
+    muthread_attr_init(&attr);
+    muthread_mutex_init(&mutex_normal, 0);
 
     long long start = get_nanotime();
     for (int i = 0; i < THREADCOUNT; ++i) {
-        st = pthread_create(&th[i], NULL, add, &mutex_normal);
+        st = muthread_create(&th[i], &attr, add, &mutex_normal);
         if (st != 0) {
             muprint("Failed to spawn thread %d: %s\n", i, strerror(-st));
             return 1;
