@@ -307,9 +307,9 @@ int change_muthread_priority(muthread_t target, uint32_t priority)
     if ((prio_cur = get_current_priority(target)) < 0)
         return -1;
     if (priority == -1) {
-        if(prio_cur != target->param->sched_priority) {
+        if(prio_cur != target->param.sched_priority) {
             futex_lock(&target->priority_lock);
-            param.sched_priority = target->param->sched_priority;
+            param.sched_priority = target->param.sched_priority;
             status = SYSCALL2(__NR_sched_setparam, target->tid, &param);
             futex_unlock(&target->priority_lock);
         }

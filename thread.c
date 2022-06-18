@@ -104,9 +104,14 @@ int muthread_create(muthread_t *thread,
     (*thread)->stack = stack;
     (*thread)->stack_size = attr->stack_size;
     (*thread)->policy = attr->policy;
-    (*thread)->param = attr->param;
     (*thread)->fn = f;
     (*thread)->arg = arg;
+    (*thread)->wait_list_lock = 0;
+    (*thread)->priority_lock = 0;
+    if (attr->param) {
+        (*thread)->param.sched_priority = attr->param->sched_priority;
+    }
+    (*thread)->list = NULL;
     /* Spawn the thread */
     int flags =
         CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SYSVSEM | CLONE_SIGHAND;
@@ -124,12 +129,12 @@ int muthread_create(muthread_t *thread,
     }
 
     (*thread)->tid = tid;
-    if (attr->flags) {
-        if(!(*thread)->param || !(*thread)->policy) {
+    if (attr->flags == TBTHREAD_EXPLICIT_SCHED) {
+        if(!attr->param || !(*thread)->policy) {
             muprint("sched parameter or policy is NULL \n");
             return -1;
         }
-        status = SYSCALL3(__NR_sched_setscheduler, (*thread)->tid, (*thread)->policy, (*thread)->param);
+        status = SYSCALL3(__NR_sched_setscheduler, (*thread)->tid, (*thread)->policy, &(*thread)->param);
         if (status < 0) {
             muprint("fail to set scheduler \n");
             return status;

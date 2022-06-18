@@ -122,12 +122,12 @@ static int lock_priority_inherit(muthread_mutex_t *mutex)
         return -EAGAIN;
     
     if (mutex->owner) {
-        int status = change_muthread_priority(mutex->owner, self->param->sched_priority);
+        int status = change_muthread_priority(mutex->owner, self->param.sched_priority);
         if (status < 0)
             muprint("fail to change priority\n");
         else {
             wait_list_add(mutex);
-            status = inherit_priority_chaining(mutex->owner, self->param->sched_priority);
+            status = inherit_priority_chaining(mutex->owner, self->param.sched_priority);
             if (status < 0)
                 muprint("fail to change priority\n");
         }
@@ -150,12 +150,12 @@ static int trylock_priority_inherit(muthread_mutex_t *mutex)
         return -EAGAIN;
 
     if (mutex->owner && mutex->owner != self) {
-        int status = change_muthread_priority(mutex->owner, self->param->sched_priority);
+        int status = change_muthread_priority(mutex->owner, self->param.sched_priority);
         if (status < 0)
             muprint("fail to change priority\n");
         else {
             wait_list_add(mutex);
-            status = inherit_priority_chaining(mutex->owner, self->param->sched_priority);
+            status = inherit_priority_chaining(mutex->owner, self->param.sched_priority);
             if (status < 0)
                 muprint("fail to change priority\n");
         }
