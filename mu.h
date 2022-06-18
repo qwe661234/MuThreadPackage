@@ -211,7 +211,7 @@ int muclone(int (*fn)(void *), void *arg, int flags, void *child_stack, ...
 #ifndef PTHREAD
 int get_current_priority(muthread_t target);
 int change_muthread_priority(muthread_t target, uint32_t priority);
-void wait_list_add(muthread_t list_owner, muthread_mutex_t *resource);
-void wait_list_delete(muthread_t list_owner, muthread_mutex_t *resource);
+void wait_list_add(muthread_mutex_t *resource);
+void wait_list_delete(muthread_mutex_t *resource);
 int inherit_priority_chaining(muthread_t list_owner, uint32_t priority);
 #endif
