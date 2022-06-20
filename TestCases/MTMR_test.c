@@ -14,12 +14,12 @@ void TASK(int i)
 {
     muthread_t self = muthread_self();
     int res = (i % RESCOUNT) + 1;
-    for(int i = 0; i < res; i++) {
-        muthread_mutex_lock(&mutex_normal[i]);
-        muprint("0x%lu GET RES %d\n", self, i);
+    for(int j = 0; j < res; j++) {
+        muthread_mutex_lock(&mutex_normal[j]);
+        muprint("0x%lu GET RES %d\n", self, j);
     }
-    for(int i = res - 1; i >= 0; i--) {
-        muthread_mutex_unlock(&mutex_normal[i]);
+    for(int j = res - 1; j >= 0; j--) {
+        muthread_mutex_unlock(&mutex_normal[j]);
     }
 }
 

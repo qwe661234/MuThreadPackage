@@ -60,14 +60,14 @@ enum {
 };
 
 /* Mutex attribute's protocol */
-enum{
+enum {
     TBTHREAD_PRIO_NONE,
     TBTHREAD_PRIO_INHERIT = 3,
     TBTHREAD_PRIO_PROTECT = 4,
 };
 
 /* Scheduler inheritance */
-enum{
+enum {
     TBTHREAD_INHERIT_SCHED,
     TBTHREAD_EXPLICIT_SCHED,
 };
@@ -81,7 +81,13 @@ typedef struct {
 
  
 /* Thread descriptor */
+struct priority_protection_data {
+  int priomax;
+  uint32_t priomap[99];
+};
+
 typedef struct wait_list wait_list_t;
+
 typedef struct muthread {
     struct muthread *self;
     void *stack;
@@ -94,6 +100,7 @@ typedef struct muthread {
     _Atomic int priority_lock;
     _Atomic int wait_list_lock;
     wait_list_t *list;
+    struct priority_protection_data tpp;
 } * muthread_t;
 
 /* Mutex attributes */
@@ -209,8 +216,7 @@ int muclone(int (*fn)(void *), void *arg, int flags, void *child_stack, ...
             _atomic_bool_cmpxchg(ptr, __UNIQUE_ID(old), __UNIQUE_ID(new), old, new) \
 
 #ifndef PTHREAD
-int get_current_priority(muthread_t target);
-int change_muthread_priority(muthread_t target, uint32_t priority);
+int change_muthread_priority(muthread_t target, uint32_t priority, int is_inherit);
 void wait_list_add(muthread_mutex_t *resource);
 void wait_list_delete(muthread_mutex_t *resource);
 int inherit_priority_chaining(muthread_t list_owner, uint32_t priority);

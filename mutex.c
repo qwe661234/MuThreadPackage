@@ -122,7 +122,7 @@ static int lock_priority_inherit(muthread_mutex_t *mutex)
         return -EAGAIN;
     
     if (mutex->owner) {
-        int status = change_muthread_priority(mutex->owner, self->param.sched_priority);
+        int status = change_muthread_priority(mutex->owner, self->param.sched_priority, 0);
         if (status < 0)
             muprint("fail to change priority\n");
         else {
@@ -150,7 +150,7 @@ static int trylock_priority_inherit(muthread_mutex_t *mutex)
         return -EAGAIN;
 
     if (mutex->owner && mutex->owner != self) {
-        int status = change_muthread_priority(mutex->owner, self->param.sched_priority);
+        int status = change_muthread_priority(mutex->owner, self->param.sched_priority, 0);
         if (status < 0)
             muprint("fail to change priority\n");
         else {
@@ -190,7 +190,7 @@ static int unlock_priority_inherit(muthread_mutex_t *mutex)
         mutex->owner = 0;
         unlock_normal(mutex);
     }
-    if (change_muthread_priority(self, -1) < 0) 
+    if (change_muthread_priority(self, (uint32_t) -1, 0) < 0) 
         muprint("fail to set priority to original\n");
     return 0;
 }
@@ -210,7 +210,7 @@ static int lock_priority_protect(muthread_mutex_t *mutex)
     if (type == TBTHREAD_MUTEX_RECURSIVE)
         ++mutex->counter;
     int ceiling = (mutex->type & MUTEX_PRIOCEILING_MASK) >> MUTEX_PRIOCEILING_SHIFT;
-    if (change_muthread_priority(self, ceiling) < 0)
+    if (change_muthread_priority(self, ceiling, 0) < 0)
         muprint("fail to change priority\n");
     return 0;
 }
@@ -230,7 +230,7 @@ static int trylock_priority_protect(muthread_mutex_t *mutex)
         if (type == TBTHREAD_MUTEX_RECURSIVE)
             ++mutex->counter;
         int ceiling = (mutex->type & MUTEX_PRIOCEILING_MASK) >> MUTEX_PRIOCEILING_SHIFT;
-        if (change_muthread_priority(self, ceiling) < 0)
+        if (change_muthread_priority(self, ceiling, 0) < 0)
             muprint("fail to change priority\n");
     }
     return ret;
@@ -256,7 +256,7 @@ static int unlock_priority_protect(muthread_mutex_t *mutex)
         mutex->owner = 0;
         unlock_normal(mutex);
     }
-    if (change_muthread_priority(self, -1) < 0)
+    if (change_muthread_priority(self, (uint32_t) -1, 0) < 0)
         muprint("fail to set priority to original\n");
     return 0;
 }
