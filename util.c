@@ -7,6 +7,7 @@
 #include <stdint.h>
 #include <string.h>
 #include <stdatomic.h>
+#include <sys/mman.h>
 
 /* A futex for serializing the writes */
 static void futex_lock(_Atomic int *futex)
@@ -27,7 +28,7 @@ static void futex_unlock(_Atomic int *futex)
 
 static inline int muwrite(int fd, const char *buffer, unsigned long len)
 {
-    return SYSCALL3(__NR_write, fd, buffer, len);
+    return write(fd, buffer, len);
 }
 
 /* Print unsigned int to a string */
@@ -163,7 +164,7 @@ void musleep(int secs)
     /* Sleep would be interrupted by signal handler, so we should 
      * record and resume it 
      */
-    while (SYSCALL2(__NR_nanosleep, &ts, &rem) == -EINTR) {
+    while (nanosleep(&ts, &rem) == -EINTR) {
         ts.tv_sec = rem.tv_sec;
         ts.tv_nsec = rem.tv_nsec;
     }
@@ -177,13 +178,13 @@ void *mummap(void *addr,
              int fd,
              unsigned long offset)
 {
-    return (void *) SYSCALL6(__NR_mmap, addr, length, prot, flags, fd, offset);
+    return (void *) mmap(addr, length, prot, flags, fd, offset);
 }
 
 /* munmap */
 int mumunmap(void *addr, unsigned long length)
 {
-    return SYSCALL2(__NR_munmap, addr, length);
+    return munmap(addr, length);
 }
 
 static inline void *mubrk(void *addr)
@@ -334,10 +335,10 @@ int change_muthread_priority(muthread_t target, uint32_t priority, int is_inheri
     target->tpp.priomax = newpriomax;
     if (priomax < newpriomax) {
         param.sched_priority = newpriomax;
-        status = SYSCALL2(__NR_sched_setparam, target->tid, &param);
+        status = sched_setparam(target->tid, &param);
     }
     if (newpriomax == 0) {
-        status = SYSCALL2(__NR_sched_setparam, target->tid, &target->param);
+        status = sched_setparam(target->tid, &target->param);
     }
     futex_unlock(&target->priority_lock);
     return status;

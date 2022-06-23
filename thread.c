@@ -30,8 +30,7 @@ int muthread_attr_setschedparam(muthread_attr_t *attr, struct sched_param *param
 {
     if (!param)
         return -EINVAL;
-    uint16_t prio_max = SYSCALL1(__NR_sched_get_priority_max, attr->policy);
-    uint16_t prio_min = SYSCALL1(__NR_sched_get_priority_min, attr->policy);
+    uint16_t prio_max = 99, prio_min = 1;
     if (param->sched_priority > prio_max || param->sched_priority < prio_min)
         return -EINVAL;
     attr->param = param;
@@ -91,7 +90,7 @@ int muthread_create(muthread_t *thread,
     if (status < 0)
         return status;
 
-    status = SYSCALL3(__NR_mprotect, stack, EXEC_PAGESIZE, PROT_NONE);
+    status = mprotect(stack, EXEC_PAGESIZE, PROT_NONE);
     if (status < 0) {
         mumunmap(stack, attr->stack_size);
         return status;
@@ -134,7 +133,7 @@ int muthread_create(muthread_t *thread,
             muprint("sched parameter or policy is NULL \n");
             return -1;
         }
-        status = SYSCALL3(__NR_sched_setscheduler, (*thread)->tid, (*thread)->policy, &(*thread)->param);
+        status = sched_setscheduler((*thread)->tid, (*thread)->policy, &(*thread)->param);
         if (status < 0) {
             muprint("fail to set scheduler \n");
             return status;

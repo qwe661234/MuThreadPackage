@@ -312,8 +312,7 @@ int muthread_mutexattr_setprotocol(muthread_mutexattr_t *attr, int protocol)
 
 int muthread_mutexattr_setprioceiling(muthread_mutexattr_t *attr, int prioceiling)
 {
-    uint16_t prio_max = SYSCALL1(__NR_sched_get_priority_max, SCHED_FIFO);
-    uint16_t prio_min = SYSCALL1(__NR_sched_get_priority_min, SCHED_FIFO);
+    uint16_t prio_max = 99, prio_min = 1;
     if (prioceiling > prio_max || prioceiling < prio_min)
         return -EINVAL;
     attr->type = (attr->type & ~(MUTEX_TYPE_MASK)) | (prioceiling << MUTEX_PRIOCEILING_SHIFT);
