@@ -297,10 +297,12 @@ int change_muthread_priority(muthread_t target, uint32_t priority, int is_inheri
             return -EINVAL;
         if (target->tpp.priomap[priority - prio_min] + 1 == 0)
             return -EAGAIN;
-        futex_lock(&target->priority_lock);
-        ++target->tpp.priomap[priority - prio_min];
-        futex_unlock(&target->priority_lock);
-        if(is_inherit) {
+        if (target->tpp.priomax || is_inherit) {
+            futex_lock(&target->priority_lock);
+            ++target->tpp.priomap[priority - prio_min];
+            futex_unlock(&target->priority_lock);
+        }
+        if(target->tpp.priomax && is_inherit) {
             if (priority > priomax) {
                 futex_lock(&target->priority_lock);
                 --target->tpp.priomap[priomax - prio_min];
