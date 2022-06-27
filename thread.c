@@ -9,6 +9,7 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+#include <sys/mman.h>
 
 /* Initialize the attrs to the defaults */
 void muthread_attr_init(muthread_attr_t *attr)
