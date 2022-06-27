@@ -51,6 +51,7 @@ static int start_thread(void *arg)
     uint32_t stack_size = th->stack_size;
     void *stack = th->stack;
     th->fn(th->arg);
+    th->tid = 0;
     free(th);
 
     /* Free the stack and exit. We do it this way because we remove the stack
@@ -63,7 +64,7 @@ static int start_thread(void *arg)
         "syscall\n\t"
         "movq $60, %%rax\n\t"  // 60 = __NR_exit
         "movq $0, %%rdi\n\t"
-        "syscall"
+        "syscall"                                  
         :                                     // Output
         : "a"(__NR_munmap), "r"(a1), "r"(a2)  // Input
         : "memory", "cc", "r11", "cx");       // Clobber List
@@ -140,4 +141,9 @@ int muthread_create(muthread_t *thread,
         }
     }
     return 0;
+}
+
+void muthread_join(muthread_t th) {
+    while (th->tid) {
+    }
 }

@@ -137,7 +137,7 @@ int muthread_create(muthread_t *thread,
                     const muthread_attr_t *attrs,
                     void *(*f)(void *),
                     void *arg);
-
+void muthread_join(muthread_t thread);
 /* Get the pointer of the currently running thread */
 static inline muthread_t muthread_self()
 {
