@@ -38,6 +38,7 @@ static void (*TASKS[])() = {
 };
 
 int main() {
+    int st;
     muthread_t th[THREADCOUNT];
     muthread_attr_t attr;
     muthread_attr_init(&attr);
@@ -49,7 +50,11 @@ int main() {
     for(int i = THREADCOUNT - 1; i >= 0; i--) {
         param.sched_priority = (THREADCOUNT - i) * 10;
         muthread_attr_setschedparam(&attr, &param);
-        muthread_create(&th[i], &attr, (void *)TASKS[i], NULL);
+        st = muthread_create(&th[i], &attr, (void *)TASKS[i], NULL);
+        if (st != 0) {
+            muprint("Failed to spawn thread %d: %s\n", i, strerror(-st));
+            return 1;
+        }
     }
     musleep(2);
     return 0;
