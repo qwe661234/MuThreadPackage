@@ -12,7 +12,10 @@ else
 endif
 
 all:
-	gcc $(CFLAGS) -o test $(OBJ)
+	gcc $(CFLAGS) -o test-$(NUM) $(OBJ)
 
-clean:
+check:
+	Tests/driver.py
+	
+clean: 
 	rm -f test

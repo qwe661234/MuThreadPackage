@@ -123,8 +123,10 @@ int main(int argc, char **argv)
     }
 
     muprint("[thread main] Threads spawned successfully\n");
-    muprint("[thread main] Sleeping 7 seconds\n");
-    musleep(7);
+
+    for (int i = 0; i < 5; ++i) {
+        muthread_join(thread[i]);
+    }
 
     /* Spawn threads to thest the errorcheck mutex */
     void *(*err_check_func[2])(void *) = {thread_func_errorcheck1,
@@ -141,8 +143,9 @@ int main(int argc, char **argv)
     }
 
     muprint("[thread main] Threads spawned successfully\n");
-    muprint("[thread main] Sleeping 5 seconds\n");
-    musleep(5);
+    for (int i = 0; i < 2; ++i) {
+        muthread_join(thread[i]);
+    }
 
     /* Spawn the threads to test the recursive mutex */
     muprint("---\n");
@@ -157,8 +160,9 @@ int main(int argc, char **argv)
     }
 
     muprint("[thread main] Threads spawned successfully\n");
-    muprint("[thread main] Sleeping 7 seconds\n");
-    musleep(7);
+    for (int i = 0; i < 5; ++i) {
+        muthread_join(thread[i]);
+    }
 
     return 0;
 }

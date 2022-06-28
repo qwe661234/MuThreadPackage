@@ -2,12 +2,13 @@
 
 #include <asm-generic/param.h>
 #include <linux/futex.h>
-#include <linux/time.h>
+#include <time.h>
 #include <stdarg.h>
 #include <stdint.h>
 #include <string.h>
 #include <stdatomic.h>
 #include <sys/mman.h>
+#include <unistd.h>
 
 /* A futex for serializing the writes */
 static void futex_lock(_Atomic int *futex)

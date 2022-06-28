@@ -4,12 +4,12 @@
 #include <unistd.h>
 #include "mu.h"
 #define THREADCOUNT 20
-int count = 0;
+unsigned long long count = 0;
 
 void *add (void *arg){
     muthread_mutex_t *mutex = (muthread_mutex_t *) arg;
 	muthread_mutex_lock(mutex);
-    for(int i = 0; i < 10; i++)
+    for(unsigned long long i = 0; i < 100000; i++)
 	    count++;
 	muthread_mutex_unlock(mutex);
     return 0;
@@ -30,7 +30,8 @@ int main() {
             return 1;
         }
     }
-
-    musleep(1);
-    muprint("count = %d\n", count);
+    for (int i = 0; i < THREADCOUNT; ++i) {
+        muthread_join(th[i]);
+    }
+    muprint("count = %lld\n", count);
 }
