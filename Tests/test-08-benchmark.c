@@ -87,7 +87,7 @@ int main(int argc, char *argv[])
         }
 	}
 	
-	for (i = 0; i < n_threads; ++i) muthread_join(tid[i]);
+	for (i = 0; i < n_threads; ++i) muthread_join(tid[i], NULL);
 
 	long long utime = get_nanotime() - start;
 	for (i = 0, z = 0, tmp = (w0.n + 63)/64; i < tmp; ++i)

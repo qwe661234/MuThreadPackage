@@ -19,13 +19,25 @@ void TASK2()
     struct sched_param param;
     muthread_mutex_lock(&mutex_normal_2);
     muthread_mutex_lock(&mutex_normal);
+#ifndef PTHREAD
     sched_getparam(muthread_self()->tid, &param);
+#else
+    sched_getparam(pthread_self(), &param);
+#endif
     muprint("TASK2 current priority = %d\n", param.sched_priority);
     muthread_mutex_unlock(&mutex_normal);
+#ifndef PTHREAD
     sched_getparam(muthread_self()->tid, &param);
+#else
+    sched_getparam(pthread_self(), &param);
+#endif
     muprint("TASK2 current priority = %d\n", param.sched_priority);
     muthread_mutex_unlock(&mutex_normal_2);
+#ifndef PTHREAD
     sched_getparam(muthread_self()->tid, &param);
+#else
+    sched_getparam(pthread_self(), &param);
+#endif
     muprint("TASK2 current priority = %d\n", param.sched_priority);
 }
 
@@ -34,10 +46,18 @@ void TASK3()
     struct sched_param param;
     muthread_mutex_lock(&mutex_normal);
     musleep(1);
+#ifndef PTHREAD
     sched_getparam(muthread_self()->tid, &param);
+#else
+    sched_getparam(pthread_self(), &param);
+#endif
     muprint("TASK3 current priority = %d\n", param.sched_priority);
     muthread_mutex_unlock(&mutex_normal);
+#ifndef PTHREAD
     sched_getparam(muthread_self()->tid, &param);
+#else
+    sched_getparam(pthread_self(), &param);
+#endif
     muprint("TASK3 current priority = %d\n", param.sched_priority);
 }
 

@@ -144,7 +144,7 @@ int muthread_create(muthread_t *thread,
     return 0;
 }
 
-void muthread_join(muthread_t th) {
+void muthread_join(muthread_t th, void **thread_return) {
     while (th->tid) {
     }
 }

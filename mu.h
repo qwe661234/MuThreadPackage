@@ -10,6 +10,7 @@
 #include <stdbool.h>
 #include <stdatomic.h>
 #include <sched.h>
+#include <unistd.h>
 
 /*
  * pthread_mutexattr_setprotocol(pthread_mutexattr_t *attr, int protocol);
@@ -31,6 +32,7 @@
 #define muthread_attr_setinheritsched pthread_attr_setinheritsched
 #define muthread_create pthread_create
 #define muthread_self pthread_self
+#define muthread_join pthread_join
 #define muthread_mutexattr_init pthread_mutexattr_init
 #define muthread_mutexattr_settype pthread_mutexattr_settype
 #define muthread_mutexattr_setprotocol pthread_mutexattr_setprotocol
@@ -137,7 +139,7 @@ int muthread_create(muthread_t *thread,
                     const muthread_attr_t *attrs,
                     void *(*f)(void *),
                     void *arg);
-void muthread_join(muthread_t thread);
+void muthread_join(muthread_t thread, void **thread_return);
 /* Get the pointer of the currently running thread */
 static inline muthread_t muthread_self()
 {

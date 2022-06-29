@@ -31,7 +31,7 @@ int main() {
         }
     }
     for (int i = 0; i < THREADCOUNT; ++i) {
-        muthread_join(th[i]);
+        muthread_join(th[i], NULL);
     }
     muprint("count = %lld\n", count);
 }

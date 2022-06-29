@@ -10,17 +10,17 @@ void *thread_func_normal(void *arg)
     muthread_mutex_t *mutex = (muthread_mutex_t *) arg;
     int locked = 0;
     if (!muthread_mutex_trylock(mutex)) {
-        muprint("[thread 0x%llx] Trying to acquire the mutex succeeded\n",
+        muprint("[thread 0x%lx] Trying to acquire the mutex succeeded\n",
                 self);
         locked = 1;
     } else
-        muprint("[thread 0x%llx] Trying to acquire the mutex failed\n", self);
+        muprint("[thread 0x%lx] Trying to acquire the mutex failed\n", self);
 
     if (!locked)
         muthread_mutex_lock(mutex);
-    muprint("[thread 0x%llx] Starting normal mutex test\n", self);
+    muprint("[thread 0x%lx] Starting normal mutex test\n", self);
     musleep(1);
-    muprint("[thread 0x%llx] Finishing normal mutex test\n", self);
+    muprint("[thread 0x%lx] Finishing normal mutex test\n", self);
     muthread_mutex_unlock(mutex);
     return 0;
 }
@@ -32,11 +32,11 @@ void *thread_func_errorcheck1(void *arg)
     muthread_mutex_t *mutex = (muthread_mutex_t *) arg;
 
     muthread_mutex_lock(mutex);
-    muprint("[thread 0x%llx] Starting errorcheck mutex test\n", self);
+    muprint("[thread 0x%lx] Starting errorcheck mutex test\n", self);
     if (muthread_mutex_lock(mutex) == -EDEADLK)
-        muprint("[thread 0x%llx] Trying to lock again would deadlock\n", self);
+        muprint("[thread 0x%lx] Trying to lock again would deadlock\n", self);
     musleep(2);
-    muprint("[thread 0x%llx] Finishing errorcheck mutex test\n", self);
+    muprint("[thread 0x%lx] Finishing errorcheck mutex test\n", self);
     muthread_mutex_unlock(mutex);
     return 0;
 }
@@ -47,15 +47,15 @@ void *thread_func_errorcheck2(void *arg)
     muthread_mutex_t *mutex = (muthread_mutex_t *) arg;
     musleep(1);
     if (muthread_mutex_unlock(mutex) == -EPERM)
-        muprint("[thread 0x%llx] Trying to unlock a mutex we don't own\n",
+        muprint("[thread 0x%lx] Trying to unlock a mutex we don't own\n",
                 self);
     muthread_mutex_lock(mutex);
-    muprint("[thread 0x%llx] Starting errorcheck mutex test\n", self);
+    muprint("[thread 0x%lx] Starting errorcheck mutex test\n", self);
     musleep(1);
-    muprint("[thread 0x%llx] Finishing errorcheck mutex test\n", self);
+    muprint("[thread 0x%lx] Finishing errorcheck mutex test\n", self);
     muthread_mutex_unlock(mutex);
     if (muthread_mutex_unlock(mutex) == -EPERM)
-        muprint("[thread 0x%llx] Trying to unlock unlocked mutex\n", self);
+        muprint("[thread 0x%lx] Trying to unlock unlocked mutex\n", self);
     return 0;
 }
 
@@ -66,19 +66,19 @@ void *thread_func_recursive(void *arg)
     muthread_mutex_t *mutex = (muthread_mutex_t *) arg;
     int locked = 0;
     if (!muthread_mutex_trylock(mutex)) {
-        muprint("[thread 0x%llx] Trying to acquire the mutex succeeded\n",
+        muprint("[thread 0x%lx] Trying to acquire the mutex succeeded\n",
                 self);
         locked = 1;
     } else
-        muprint("[thread 0x%llx] Trying to acquire the mutex failed\n", self);
+        muprint("[thread 0x%lx] Trying to acquire the mutex failed\n", self);
 
     if (!locked)
         muthread_mutex_lock(mutex);
     muthread_mutex_lock(mutex);
     muthread_mutex_lock(mutex);
-    muprint("[thread 0x%llx] Starting recursive mutex test\n", self);
+    muprint("[thread 0x%lx] Starting recursive mutex test\n", self);
     musleep(1);
-    muprint("[thread 0x%llx] Finishing recursive mutex test\n", self);
+    muprint("[thread 0x%lx] Finishing recursive mutex test\n", self);
     muthread_mutex_unlock(mutex);
     muthread_mutex_unlock(mutex);
     muthread_mutex_unlock(mutex);
@@ -125,7 +125,7 @@ int main(int argc, char **argv)
     muprint("[thread main] Threads spawned successfully\n");
 
     for (int i = 0; i < 5; ++i) {
-        muthread_join(thread[i]);
+        muthread_join(thread[i], NULL);
     }
 
     /* Spawn threads to thest the errorcheck mutex */
@@ -144,7 +144,7 @@ int main(int argc, char **argv)
 
     muprint("[thread main] Threads spawned successfully\n");
     for (int i = 0; i < 2; ++i) {
-        muthread_join(thread[i]);
+        muthread_join(thread[i], NULL);
     }
 
     /* Spawn the threads to test the recursive mutex */
@@ -161,7 +161,7 @@ int main(int argc, char **argv)
 
     muprint("[thread main] Threads spawned successfully\n");
     for (int i = 0; i < 5; ++i) {
-        muthread_join(thread[i]);
+        muthread_join(thread[i], NULL);
     }
 
     return 0;
