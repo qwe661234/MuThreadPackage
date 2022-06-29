@@ -2,6 +2,7 @@
 
 #include <linux/futex.h>
 #include <sched.h>
+#include <stdatomic.h>
 #define MUTEX_TYPE_MASK 0x000f
 #define MUTEX_PROTOCOL_MASK 0x00f0
 #define MUTEX_PRIOCEILING_MASK 0xff00
@@ -10,12 +11,19 @@
 
 /* Normal mutex */
 static int lock_normal(muthread_mutex_t *mutex)
-{
-    while (1) {
-        if (atomic_bool_cmpxchg(&mutex->futex, 0, 1))
-            return 0;
-        SYSCALL3(__NR_futex, &mutex->futex, FUTEX_WAIT, 1);
+{  
+    if (atomic_bool_cmpxchg(&mutex->futex, 0, 1))
+        return 0;
+    else {
+        if (atomic_load_explicit(&mutex->futex, memory_order_relaxed) == 2)
+            goto futex;
+
+        while (atomic_exchange_explicit(&mutex->futex, 2, memory_order_acquire) != 0) {
+            futex:
+            SYSCALL3(__NR_futex, &mutex->futex, FUTEX_WAIT_PRIVATE, 2);
+        }
     }
+    return 0;
 }
 
 static int trylock_normal(muthread_mutex_t *mutex)
@@ -27,8 +35,8 @@ static int trylock_normal(muthread_mutex_t *mutex)
 
 static int unlock_normal(muthread_mutex_t *mutex)
 {
-    if (atomic_bool_cmpxchg(&mutex->futex, 1, 0))
-        SYSCALL3(__NR_futex, &mutex->futex, FUTEX_WAKE, 1);
+    if (atomic_exchange_explicit(&mutex->futex, 0, memory_order_release) == 2)
+        SYSCALL3(__NR_futex, &mutex->futex, FUTEX_WAKE_PRIVATE, 1);
     return 0;
 }
 

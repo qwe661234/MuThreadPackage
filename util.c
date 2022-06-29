@@ -17,14 +17,14 @@ static void futex_lock(_Atomic int *futex)
         _Atomic int val = *futex;
         if (val == 0 && atomic_bool_cmpxchg(futex, val, 1))
             return;
-        SYSCALL3(__NR_futex, futex, FUTEX_WAIT, 1);
+        SYSCALL3(__NR_futex, futex, FUTEX_WAIT_PRIVATE, 1);
     }
 }
 
 static void futex_unlock(_Atomic int *futex)
 {
     atomic_bool_cmpxchg(futex, 1, 0);
-    SYSCALL3(__NR_futex, futex, FUTEX_WAKE, 1);
+    SYSCALL3(__NR_futex, futex, FUTEX_WAKE_PRIVATE, 1);
 }
 
 static inline int muwrite(int fd, const char *buffer, unsigned long len)
