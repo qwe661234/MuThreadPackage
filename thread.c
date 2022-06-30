@@ -4,6 +4,7 @@
 #include <asm-generic/param.h>
 #include <linux/mman.h>
 #include <linux/sched.h>
+#include <linux/futex.h>
 #include <sys/types.h>
 #include <sched.h>
 #include <stdint.h>
@@ -53,6 +54,7 @@ static int start_thread(void *arg)
     void *stack = th->stack;
     th->fn(th->arg);
     th->tid = 0;
+    SYSCALL3(__NR_futex, &th->tid, FUTEX_WAKE_PRIVATE, 1);
     free(th);
 
     /* Free the stack and exit. We do it this way because we remove the stack
@@ -146,5 +148,6 @@ int muthread_create(muthread_t *thread,
 
 void muthread_join(muthread_t th, void **thread_return) {
     while (th->tid) {
+        SYSCALL3(__NR_futex, &th->tid, FUTEX_WAIT_PRIVATE, th->tid);
     }
 }

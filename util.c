@@ -13,18 +13,24 @@
 /* A futex for serializing the writes */
 static void futex_lock(_Atomic int *futex)
 {
-    while (1) {
-        _Atomic int val = *futex;
-        if (val == 0 && atomic_bool_cmpxchg(futex, val, 1))
-            return;
-        SYSCALL3(__NR_futex, futex, FUTEX_WAIT_PRIVATE, 1);
+    _Atomic int val = *futex;
+    if (atomic_bool_cmpxchg(futex, val, 1))
+        return;
+    else {
+        if (atomic_load_explicit(futex, memory_order_relaxed) == 2)
+            goto futex;
+
+        while (atomic_exchange_explicit(futex, 2, memory_order_acquire) != 0) {
+            futex:
+            SYSCALL3(__NR_futex, futex, FUTEX_WAIT_PRIVATE, 2);
+        }
     }
 }
 
 static void futex_unlock(_Atomic int *futex)
 {
-    atomic_bool_cmpxchg(futex, 1, 0);
-    SYSCALL3(__NR_futex, futex, FUTEX_WAKE_PRIVATE, 1);
+    if (atomic_exchange_explicit(futex, 0, memory_order_release) == 2)
+        SYSCALL3(__NR_futex, futex, FUTEX_WAKE_PRIVATE, 1);
 }
 
 static inline int muwrite(int fd, const char *buffer, unsigned long len)
