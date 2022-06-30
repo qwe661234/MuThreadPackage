@@ -287,7 +287,7 @@ void free(void *ptr)
 }
 
 /* Get thread current priority and change thread priority */
-int change_muthread_priority(muthread_t target, uint32_t priority, int is_inherit) 
+int change_muthread_priority(muthread_t target, uint32_t priority, int is_inherit, int is_proctect) 
 {
     uint16_t prio_max = 99, prio_min = 1;
     int priomax = target->tpp.priomax;
@@ -298,7 +298,7 @@ int change_muthread_priority(muthread_t target, uint32_t priority, int is_inheri
             return -EINVAL;
         if (target->tpp.priomap[priority - prio_min] + 1 == 0)
             return -EAGAIN;
-        if (target->tpp.priomax || is_inherit) {
+        if (target->tpp.priomax || is_inherit || is_proctect) {
             futex_lock(&target->priority_lock);
             ++target->tpp.priomap[priority - prio_min];
             futex_unlock(&target->priority_lock);
@@ -391,7 +391,7 @@ int inherit_priority_chaining(muthread_t list_owner, uint32_t priority)
     wait_list_t *cur = list_owner->list;
     int status = 0;
     while(cur) {
-        status = change_muthread_priority(cur->mutex->owner, priority, 1);
+        status = change_muthread_priority(cur->mutex->owner, priority, 1, 0);
         if (status < 0) {
             futex_unlock(&list_owner->wait_list_lock);
             return -1;

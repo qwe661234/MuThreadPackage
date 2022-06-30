@@ -130,7 +130,7 @@ static int lock_priority_inherit(muthread_mutex_t *mutex)
         return -EAGAIN;
     
     if (mutex->owner) {
-        int status = change_muthread_priority(mutex->owner, self->param.sched_priority, 1);
+        int status = change_muthread_priority(mutex->owner, self->param.sched_priority, 1, 0);
         if (status < 0)
             muprint("fail to change priority\n");
         else {
@@ -141,7 +141,7 @@ static int lock_priority_inherit(muthread_mutex_t *mutex)
         }
     }
     lock_normal(mutex);
-    change_muthread_priority(self, self->tpp.priomax, 0);
+    change_muthread_priority(self, self->tpp.priomax, 0, 0);
     wait_list_delete(mutex);
     mutex->owner = self;
     if (type == TBTHREAD_MUTEX_RECURSIVE)
@@ -159,7 +159,7 @@ static int trylock_priority_inherit(muthread_mutex_t *mutex)
         return -EAGAIN;
 
     if (mutex->owner && mutex->owner != self) {
-        int status = change_muthread_priority(mutex->owner, self->param.sched_priority, 1);
+        int status = change_muthread_priority(mutex->owner, self->param.sched_priority, 1, 0);
         if (status < 0)
             muprint("fail to change priority\n");
         else {
@@ -171,7 +171,7 @@ static int trylock_priority_inherit(muthread_mutex_t *mutex)
     }
     int ret = trylock_normal(mutex);
     if (ret == 0) {
-        change_muthread_priority(self, self->param.sched_priority, 0);
+        change_muthread_priority(self, self->param.sched_priority, 0, 0);
         wait_list_delete(mutex);
         mutex->owner = self;
         if (type == TBTHREAD_MUTEX_RECURSIVE)
@@ -200,7 +200,7 @@ static int unlock_priority_inherit(muthread_mutex_t *mutex)
         mutex->owner = 0;
         unlock_normal(mutex);
     }
-    if (change_muthread_priority(self, (uint32_t) -1, 0) < 0) 
+    if (change_muthread_priority(self, (uint32_t) -1, 0, 0) < 0) 
         muprint("fail to set priority to original\n");
     return 0;
 }
@@ -220,7 +220,7 @@ static int lock_priority_protect(muthread_mutex_t *mutex)
     if (type == TBTHREAD_MUTEX_RECURSIVE)
         ++mutex->counter;
     int ceiling = (mutex->type & MUTEX_PRIOCEILING_MASK) >> MUTEX_PRIOCEILING_SHIFT;
-    if (change_muthread_priority(self, ceiling, 0) < 0)
+    if (change_muthread_priority(self, ceiling, 0, 1) < 0)
         muprint("fail to change priority\n");
     return 0;
 }
@@ -240,7 +240,7 @@ static int trylock_priority_protect(muthread_mutex_t *mutex)
         if (type == TBTHREAD_MUTEX_RECURSIVE)
             ++mutex->counter;
         int ceiling = (mutex->type & MUTEX_PRIOCEILING_MASK) >> MUTEX_PRIOCEILING_SHIFT;
-        if (change_muthread_priority(self, ceiling, 0) < 0)
+        if (change_muthread_priority(self, ceiling, 0, 1) < 0)
             muprint("fail to change priority\n");
     }
     return ret;
@@ -266,7 +266,7 @@ static int unlock_priority_protect(muthread_mutex_t *mutex)
         mutex->owner = 0;
         unlock_normal(mutex);
     }
-    if (change_muthread_priority(self, (uint32_t) -1, 0) < 0)
+    if (change_muthread_priority(self, (uint32_t) -1, 0, 0) < 0)
         muprint("fail to set priority to original\n");
     return 0;
 }
@@ -325,7 +325,7 @@ int muthread_mutexattr_setprioceiling(muthread_mutexattr_t *attr, int prioceilin
     uint16_t prio_max = 99, prio_min = 1;
     if (prioceiling > prio_max || prioceiling < prio_min)
         return -EINVAL;
-    attr->type = (attr->type & ~(MUTEX_TYPE_MASK)) | (prioceiling << MUTEX_PRIOCEILING_SHIFT);
+    attr->type = (attr->type & ~(MUTEX_PRIOCEILING_MASK)) | (prioceiling << MUTEX_PRIOCEILING_SHIFT);
     return 0;
 }
 
