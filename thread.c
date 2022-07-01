@@ -53,8 +53,6 @@ static int start_thread(void *arg)
     uint32_t stack_size = th->stack_size;
     void *stack = th->stack;
     th->fn(th->arg);
-    th->tid = 0;
-    SYSCALL3(__NR_futex, &th->tid, FUTEX_WAKE_PRIVATE, 1);
     free(th);
 
     /* Free the stack and exit. We do it this way because we remove the stack
@@ -118,20 +116,19 @@ int muthread_create(muthread_t *thread,
     /* Spawn the thread */
     int flags =
         CLONE_VM | CLONE_FS | CLONE_FILES | CLONE_SYSVSEM | CLONE_SIGHAND;
-    flags |= CLONE_THREAD | CLONE_SETTLS;
+    flags |= CLONE_THREAD | CLONE_SETTLS | CLONE_PARENT_SETTID | CLONE_CHILD_CLEARTID;
     
     /* Because the address of stack is from high to low, so the pointer to 
      * child stack should be stack + attr->size 
      */
     int tid = muclone(start_thread, *thread, flags,
-                      (char *) stack + attr->stack_size, 0, 0, *thread);
+                      (char *) stack + attr->stack_size, &(*thread)->tid, &(*thread)->tid, *thread);
     if (tid < 0) {
         mumunmap(stack, attr->stack_size);
         free(*thread);
         return tid;
     }
 
-    (*thread)->tid = tid;
     if (attr->flags == TBTHREAD_EXPLICIT_SCHED) {
         if(!attr->param || !(*thread)->policy) {
             muprint("sched parameter or policy is NULL \n");
@@ -148,6 +145,6 @@ int muthread_create(muthread_t *thread,
 
 void muthread_join(muthread_t th, void **thread_return) {
     while (th->tid) {
-        SYSCALL3(__NR_futex, &th->tid, FUTEX_WAIT_PRIVATE, th->tid);
+        SYSCALL3(__NR_futex, &th->tid, FUTEX_WAIT, th->tid);
     }
 }
