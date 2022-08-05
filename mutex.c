@@ -128,22 +128,10 @@ static int lock_priority_inherit(muthread_mutex_t *mutex)
         return -EDEADLK;
     if (type == TBTHREAD_MUTEX_RECURSIVE && mutex->counter == (uint64_t) -1)
         return -EAGAIN;
-    
-    if (mutex->owner) {
-        int status = change_muthread_priority(mutex->owner, self->param.sched_priority, 1, 0);
-        if (status < 0)
-            muprint("fail to change priority\n");
-        else {
-            wait_list_add(mutex);
-            status = inherit_priority_chaining(mutex->owner, self->param.sched_priority);
-            if (status < 0)
-                muprint("fail to change priority\n");
-        }
-    }
-    lock_normal(mutex);
-    change_muthread_priority(self, self->tpp.priomax, 0, 0);
-    wait_list_delete(mutex);
+
+    SYSCALL2(__NR_futex, mutex, FUTEX_LOCK_PI);
     mutex->owner = self;
+    
     if (type == TBTHREAD_MUTEX_RECURSIVE)
         ++mutex->counter;
     return 0;
@@ -158,21 +146,8 @@ static int trylock_priority_inherit(muthread_mutex_t *mutex)
     if (type == TBTHREAD_MUTEX_RECURSIVE && mutex->counter == (uint64_t) -1)
         return -EAGAIN;
 
-    if (mutex->owner && mutex->owner != self) {
-        int status = change_muthread_priority(mutex->owner, self->param.sched_priority, 1, 0);
-        if (status < 0)
-            muprint("fail to change priority\n");
-        else {
-            wait_list_add(mutex);
-            status = inherit_priority_chaining(mutex->owner, self->param.sched_priority);
-            if (status < 0)
-                muprint("fail to change priority\n");
-        }
-    }
-    int ret = trylock_normal(mutex);
+    int ret = SYSCALL2(__NR_futex, mutex, FUTEX_TRYLOCK_PI);
     if (ret == 0) {
-        change_muthread_priority(self, self->param.sched_priority, 0, 0);
-        wait_list_delete(mutex);
         mutex->owner = self;
         if (type == TBTHREAD_MUTEX_RECURSIVE)
             ++mutex->counter;
@@ -194,14 +169,12 @@ static int unlock_priority_inherit(muthread_mutex_t *mutex)
         --mutex->counter;
         if (mutex->counter == 0) {
             mutex->owner = 0;
-            unlock_normal(mutex);
+            SYSCALL2(__NR_futex, mutex, FUTEX_UNLOCK_PI);
         }
     } else { 
         mutex->owner = 0;
-        unlock_normal(mutex);
+        SYSCALL2(__NR_futex, mutex, FUTEX_UNLOCK_PI);
     }
-    if (change_muthread_priority(self, (uint32_t) -1, 0, 0) < 0) 
-        muprint("fail to set priority to original\n");
     return 0;
 }
 
