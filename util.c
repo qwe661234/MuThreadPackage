@@ -293,39 +293,25 @@ void free(void *ptr)
 }
 
 /* Get thread current priority and change thread priority */
-int change_muthread_priority(muthread_t target, uint32_t priority, int is_inherit, int is_proctect) 
+int change_muthread_priority(muthread_t target, uint32_t priority) 
 {
     uint16_t prio_max = 99, prio_min = 1;
     int priomax = target->tpp.priomax;
     int newpriomax = priomax;
+    futex_lock(&target->priority_lock);
     /* get lock and raise priority */
     if (priority != -1) {
         if (priority > prio_max || priority < prio_min)
             return -EINVAL;
-        if (target->tpp.priomap[priority - prio_min] + 1 == 0)
+        if (target->tpp.priomap[priority - prio_min] + 1 == 0) {
             return -EAGAIN;
-        if (target->tpp.priomax || is_inherit || is_proctect) {
-            futex_lock(&target->priority_lock);
-            ++target->tpp.priomap[priority - prio_min];
-            futex_unlock(&target->priority_lock);
         }
-        if(target->tpp.priomax && is_inherit) {
-            if (priority > priomax) {
-                futex_lock(&target->priority_lock);
-                --target->tpp.priomap[priomax - prio_min];
-                futex_unlock(&target->priority_lock);
-            } else {
-                futex_lock(&target->priority_lock);
-                --target->tpp.priomap[priority - prio_min];
-                futex_unlock(&target->priority_lock);
-            }
-        }
+        ++target->tpp.priomap[priority - prio_min];
         if (priority > priomax) {
             newpriomax = priority;
         } 
     } else {
         /* release lock and drop priority */
-        futex_lock(&target->priority_lock);
         if (priomax && --target->tpp.priomap[priomax - prio_min] == 0) {
             int i;
             for (i = priomax - 1; i >= prio_min; --i) {
@@ -334,82 +320,21 @@ int change_muthread_priority(muthread_t target, uint32_t priority, int is_inheri
             }
             newpriomax = i;
         }
-        futex_unlock(&target->priority_lock);
     }
     if (newpriomax == priomax)
         return 0;
     int status = 0;
     struct sched_param param;
-    futex_lock(&target->priority_lock);
     target->tpp.priomax = newpriomax;
+    /* raise priority */
     if (priomax < newpriomax) {
         param.sched_priority = newpriomax;
         status = sched_setparam(target->tid, &param);
     }
+    /* drop priority to origin */
     if (newpriomax == 0) {
-        status = sched_setparam(target->tid, &target->param);
+        target->tpp.priomax = target->param.sched_priority;
     }
     futex_unlock(&target->priority_lock);
-    return status;
-}
-
-/* Maintain wait_list */
-void wait_list_add(muthread_mutex_t *resource) 
-{
-    muthread_t self = muthread_self();
-    wait_list_t *node = malloc(sizeof(wait_list_t));
-    node->mutex = resource;
-    futex_lock(&self->wait_list_lock);
-    node->next = self->list;
-    self->list = node;
-    futex_unlock(&self->wait_list_lock);
-}
-
-void wait_list_delete(muthread_mutex_t *target) 
-{
-    muthread_t self = muthread_self();
-    futex_lock(&self->wait_list_lock);
-    wait_list_t *cur = self->list, *prev = self->list;
-    futex_unlock(&self->wait_list_lock);
-    while (cur) {
-        if (cur->mutex == target)
-            break;
-        prev = cur;
-        cur = cur->next;
-    }
-    if (cur) {
-        wait_list_t *tmp = cur;
-        futex_lock(&(self->wait_list_lock));
-        if (prev == cur)
-            self->list = self->list->next;
-        else
-            prev->next = cur->next;
-        futex_unlock(&self->wait_list_lock);
-        free(tmp);
-    }
-}
-
-int inherit_priority_chaining(muthread_t list_owner, uint32_t priority) 
-{
-    if(!list_owner)
-        return 0;
-    futex_lock(&list_owner->wait_list_lock);
-    wait_list_t *cur = list_owner->list;
-    int status = 0;
-    while(cur) {
-        status = change_muthread_priority(cur->mutex->owner, priority, 1, 0);
-        if (status < 0) {
-            futex_unlock(&list_owner->wait_list_lock);
-            return -1;
-        }
-            
-        status = inherit_priority_chaining(cur->mutex->owner, priority);
-        if (status < 0) {
-            futex_unlock(&list_owner->wait_list_lock);
-            return -1;
-        }
-        cur = cur->next;
-    }
-    futex_unlock(&list_owner->wait_list_lock);
     return status;
 }

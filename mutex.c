@@ -193,7 +193,7 @@ static int lock_priority_protect(muthread_mutex_t *mutex)
     if (type == TBTHREAD_MUTEX_RECURSIVE)
         ++mutex->counter;
     int ceiling = (mutex->type & MUTEX_PRIOCEILING_MASK) >> MUTEX_PRIOCEILING_SHIFT;
-    if (change_muthread_priority(self, ceiling, 0, 1) < 0)
+    if (change_muthread_priority(self, ceiling) < 0)
         muprint("fail to change priority\n");
     return 0;
 }
@@ -202,8 +202,9 @@ static int trylock_priority_protect(muthread_mutex_t *mutex)
 {
     muthread_t self = muthread_self();
     uint16_t type = mutex->type & MUTEX_TYPE_MASK;
-    if (mutex->owner == self && type == TBTHREAD_MUTEX_ERRORCHECK)
+    if (mutex->owner == self && type == TBTHREAD_MUTEX_ERRORCHECK) {
         return -EDEADLK;
+    }
     if (type == TBTHREAD_MUTEX_RECURSIVE && mutex->counter == (uint64_t) -1)
         return -EAGAIN;
 
@@ -213,7 +214,8 @@ static int trylock_priority_protect(muthread_mutex_t *mutex)
         if (type == TBTHREAD_MUTEX_RECURSIVE)
             ++mutex->counter;
         int ceiling = (mutex->type & MUTEX_PRIOCEILING_MASK) >> MUTEX_PRIOCEILING_SHIFT;
-        if (change_muthread_priority(self, ceiling, 0, 1) < 0)
+        int status = change_muthread_priority(self, ceiling);
+        if (status < 0)
             muprint("fail to change priority\n");
     }
     return ret;
@@ -239,7 +241,7 @@ static int unlock_priority_protect(muthread_mutex_t *mutex)
         mutex->owner = 0;
         unlock_normal(mutex);
     }
-    if (change_muthread_priority(self, (uint32_t) -1, 0, 0) < 0)
+    if (change_muthread_priority(self, (uint32_t) -1) < 0)
         muprint("fail to set priority to original\n");
     return 0;
 }
@@ -337,7 +339,7 @@ int muthread_mutex_trylock(muthread_mutex_t *mutex)
 /* Unlock the mutex */
 int muthread_mutex_unlock(muthread_mutex_t *mutex)
 {
-    uint16_t type = (mutex->type >> MUTEX_PROTOCOL_SHIFT) & (MUTEX_TYPE_MASK);
+    uint16_t type = (mutex->type & MUTEX_PROTOCOL_MASK) >> MUTEX_PROTOCOL_SHIFT;
     if(!type)
         type = mutex->type & MUTEX_TYPE_MASK;
     return (*unlockers[type])(mutex);

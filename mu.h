@@ -100,8 +100,6 @@ typedef struct muthread {
     uint16_t policy;
     struct sched_param param;
     _Atomic int priority_lock;
-    _Atomic int wait_list_lock;
-    wait_list_t *list;
     struct priority_protection_data tpp;
 } * muthread_t;
 
@@ -218,7 +216,7 @@ int muclone(int (*fn)(void *), void *arg, int flags, void *child_stack, ...
             _atomic_bool_cmpxchg(ptr, __UNIQUE_ID(old), __UNIQUE_ID(new), old, new) \
 
 #ifndef PTHREAD
-int change_muthread_priority(muthread_t target, uint32_t priority, int is_inherit, int is_protect);
+int change_muthread_priority(muthread_t target, uint32_t priority);
 void wait_list_add(muthread_mutex_t *resource);
 void wait_list_delete(muthread_mutex_t *resource);
 int inherit_priority_chaining(muthread_t list_owner, uint32_t priority);
