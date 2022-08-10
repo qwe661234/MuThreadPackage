@@ -6,6 +6,7 @@ ifeq ("$(PTHREAD)","1")
 else
 	OBJ := Tests/$(FILE).c \
 		mutex.c \
+		condvar.c \
 		thread.c \
 		util.c \
 		clone.S
@@ -20,6 +21,8 @@ check:
 
 test:
 	Tests/driver.py
-	
+
+cond:
+	make FILE=test-10-condvar-signal NUM=10
 clean: 
 	rm -f test-*
