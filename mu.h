@@ -58,6 +58,12 @@ enum {
     TBTHREAD_MUTEX_NORMAL = 0,
     TBTHREAD_MUTEX_ERRORCHECK,
     TBTHREAD_MUTEX_RECURSIVE,
+    TBTHREAD_MUTEX_PI_NORMAL,
+    TBTHREAD_MUTEX_PI_ERRORCHECK,
+    TBTHREAD_MUTEX_PI_RECURSIVE,
+    TBTHREAD_MUTEX_PP_NORMAL,
+    TBTHREAD_MUTEX_PP_ERRORCHECK,
+    TBTHREAD_MUTEX_PP_RECURSIVE,
     TBTHREAD_MUTEX_DEFAULT = 0,
 };
 
@@ -65,7 +71,7 @@ enum {
 enum {
     TBTHREAD_PRIO_NONE,
     TBTHREAD_PRIO_INHERIT = 3,
-    TBTHREAD_PRIO_PROTECT = 4,
+    TBTHREAD_PRIO_PROTECT = 6,
 };
 
 /* Scheduler inheritance */
@@ -106,21 +112,17 @@ typedef struct muthread {
 /* Mutex attributes */
 typedef struct {
     uint16_t type;
+    uint16_t prioceiling;
 } muthread_mutexattr_t;
 
 /* Mutex */
 typedef struct {
     _Atomic int futex;
-    /* bit 0 ~ 7: prioceiling, bit 8 ~ 11: protocol, bit 12 ~ 15: mutex type */
     uint16_t type;
+    uint16_t prioceiling;
     muthread_t owner;
     uint64_t counter;
 } muthread_mutex_t;
-
-struct wait_list {
-    muthread_mutex_t *mutex;
-    struct wait_list *next;
-};
 
 #define TBTHREAD_MUTEX_INITIALIZER \
     {                              \
