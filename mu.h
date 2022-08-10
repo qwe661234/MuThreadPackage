@@ -124,6 +124,11 @@ typedef struct {
     uint64_t counter;
 } muthread_mutex_t;
 
+typedef struct muthread_cond {
+    _Atomic int lock;
+    _Atomic int futex; 
+} muthread_cond_t;
+
 #define TBTHREAD_MUTEX_INITIALIZER \
     {                              \
         0, 0, 0, 0                 \
@@ -160,6 +165,14 @@ int muthread_mutex_init(muthread_mutex_t *mutex,
 int muthread_mutex_lock(muthread_mutex_t *mutex);
 int muthread_mutex_trylock(muthread_mutex_t *mutex);
 int muthread_mutex_unlock(muthread_mutex_t *mutex);
+
+/* CondVar*/
+int muthread_cond_wait(muthread_cond_t *condvar, muthread_mutex_t *mutex);
+int muthread_cond_signal(muthread_cond_t *condvar, muthread_mutex_t *mutex);
+int muthread_cond_broadcast(muthread_cond_t *condvar, muthread_mutex_t *mutex);
+int muthread_cond_wait_pi(muthread_cond_t *condvar, muthread_mutex_t *mutex);
+int muthread_cond_signal_pi(muthread_cond_t *condvar, muthread_mutex_t *mutex);
+int muthread_cond_broadcast_pi(muthread_cond_t *condvar, muthread_mutex_t *mutex);
 
 /* Utility functions */
 void muprint(const char *format, ...);
