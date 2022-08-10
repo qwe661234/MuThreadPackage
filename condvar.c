@@ -55,3 +55,30 @@ int muthread_cond_broadcast(muthread_cond_t *condvar, muthread_mutex_t *mutex)
     muthread_mutex_lock(mutex);
     return 0;
 }
+
+int muthread_cond_wait_pi(muthread_cond_t *condvar, muthread_mutex_t *mutex)
+{
+    futex_lock(&condvar->lock);
+    muthread_mutex_unlock(mutex);
+    do {
+        futex_unlock(&condvar->lock);
+        SYSCALL5(__NR_futex, &condvar->futex, FUTEX_WAIT_REQUEUE_PI, NULL, NULL, mutex);
+        break;
+    } while (1);
+}
+
+int muthread_cond_signal_pi(muthread_cond_t *condvar, muthread_mutex_t *mutex)
+{
+    muthread_mutex_unlock(mutex);
+    futex_lock(&condvar->lock);
+    SYSCALL5(__NR_futex, &condvar->futex, FUTEX_CMP_REQUEUE_PI, 1, 0, mutex);
+    futex_unlock(&condvar->lock);
+}
+
+int muthread_cond_broadcast_pi(muthread_cond_t *condvar, muthread_mutex_t *mutex)
+{
+    muthread_mutex_unlock(mutex);
+    futex_lock(&condvar->lock);
+    SYSCALL5(__NR_futex, &condvar->futex, FUTEX_CMP_REQUEUE_PI, 1,  INT32_MAX, mutex);
+    futex_unlock(&condvar->lock);
+}

@@ -170,6 +170,9 @@ int muthread_mutex_unlock(muthread_mutex_t *mutex);
 int muthread_cond_wait(muthread_cond_t *condvar, muthread_mutex_t *mutex);
 int muthread_cond_signal(muthread_cond_t *condvar, muthread_mutex_t *mutex);
 int muthread_cond_broadcast(muthread_cond_t *condvar, muthread_mutex_t *mutex);
+int muthread_cond_wait_pi(muthread_cond_t *condvar, muthread_mutex_t *mutex);
+int muthread_cond_signal_pi(muthread_cond_t *condvar, muthread_mutex_t *mutex);
+int muthread_cond_broadcast_pi(muthread_cond_t *condvar, muthread_mutex_t *mutex);
 
 /* Utility functions */
 void muprint(const char *format, ...);
