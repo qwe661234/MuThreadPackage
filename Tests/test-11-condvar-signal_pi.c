@@ -20,6 +20,7 @@ void *task (void *arg) {
     muprint("Thread 0x%lx with priority = %d complete task\n", muthread_self(), param.sched_priority);
     muthread_cond_signal_pi(&c, &mutex_normal);
     muthread_mutex_unlock(&mutex_normal);
+    return NULL;
 }
 
 int main() {

@@ -18,6 +18,7 @@ void *task (void *arg) {
     muprint("Thread 0x%lx complete task\n", muthread_self());
     muthread_cond_signal(&c, &mutex_normal);
     muthread_mutex_unlock(&mutex_normal);
+    return NULL;
 }
 
 int main() {

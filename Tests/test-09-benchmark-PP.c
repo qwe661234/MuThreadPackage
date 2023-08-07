@@ -11,7 +11,6 @@ static muthread_mutex_t mutex_normal[RESCOUNT];
 
 void TASK(int n)
 {
-    muthread_t self = muthread_self();
     for (int j = 0; j < 1000; j++) {
         for (int i = 0; i < RESCOUNT; i++) {
             muthread_mutex_trylock(&mutex_normal[i]);

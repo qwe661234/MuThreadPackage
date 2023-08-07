@@ -37,6 +37,7 @@ void *task (void *arg) {
     sched_getparam(muthread_self()->tid, &param);
     muprint("Thread 0x%lx with priority = %d complete task\n", muthread_self(), param.sched_priority);
     muthread_mutex_unlock(&mutex_normal);
+    return NULL;
 }
 
 int main() {
